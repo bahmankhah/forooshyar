@@ -51,9 +51,9 @@ class ProviderManager
             }
         });
 
-        error_log('LOAD TESTINGFOROOSH1');
-
+        
         foreach ($this->instances as $provider) {
+            error_log('LOAD TESTINGFOROOSH1');
             $provider->admin();
         }
 
