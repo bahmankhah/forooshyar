@@ -21,7 +21,7 @@ class ProviderManager
         ];
         $providers = array_merge($providers, appConfig('app.providers', []));
         foreach (get_declared_classes() as $declared) {
-            if (strpos($declared, 'Forooshyar\\Provider\\') === 0 && !in_array($declared, $providers, true)) {
+            if (strpos($declared, 'Src\\Provider\\') === 0 && !in_array($declared, $providers, true)) {
                 $providers[] = $declared;
             }
         }
@@ -31,6 +31,7 @@ class ProviderManager
 
     public function load()
     {
+            error_log('LOAD TESTINGFOROOSH1 ' . json_encode($this->providers));
         foreach ($this->providers as $providerClass) {
             $provider = new $providerClass();
             $this->instances[] = $provider;
