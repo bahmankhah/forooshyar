@@ -120,6 +120,7 @@ class AppServiceProvider extends Provider
     public function boot() {}
     public function admin() {
         // Register admin menu
+        appLogger('TESTINGFOROOSH');
         add_action('admin_menu', function() {
             $adminController = new \Forooshyar\Controllers\AdminController();
             $adminController->registerAdminMenu();
