@@ -1,0 +1,17 @@
+{
+    "name": "hsm/wplite",
+    "description": "WPLite WordPress Framework",
+    "type": "library",
+    "autoload": {
+        "psr-4": {
+            "WPLite\\": "src/"
+        },
+        "files": [
+            "src/Helpers/main.php"
+        ]
+    },
+    "license": "MIT",
+    "require": {
+        "php": ">=7.4"
+    }
+}
