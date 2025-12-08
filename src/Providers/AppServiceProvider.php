@@ -115,12 +115,17 @@ class AppServiceProvider extends Provider
         
         // Initialize log cleanup service
         Container::resolve(LogCleanupService::class)->init();
-        
+        error_log('TESTINGFOROOSH1');
+
+        add_action('admin_menu', function() {
+            $adminController = new \Forooshyar\Controllers\AdminController();
+            $adminController->registerAdminMenu();
+        },00);
     }
     public function boot() {}
     public function admin() {
         // Register admin menu
-        appLogger('TESTINGFOROOSH');
+        error_log('TESTINGFOROOSH');
         add_action('admin_menu', function() {
             $adminController = new \Forooshyar\Controllers\AdminController();
             $adminController->registerAdminMenu();
