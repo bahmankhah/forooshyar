@@ -8,6 +8,8 @@ if (!function_exists('appConfig')) {
     function appConfig($key = null, $default = null)
     {
         global $wplite_configs;
+        error_log('LOAD TESTINGFOROOSH1 ' . json_encode($wplite_configs));
+        
         if ($key === null) {
             return $wplite_configs;
         }

@@ -19,7 +19,6 @@ class ProviderManager
         $providers = [
             \WPLite\Providers\RouteServiceProvider::class,
         ];
-        error_log('LOAD TESTINGFOROOSH1 ' . json_encode($GLOBALS['wplite_configs']));
         $providers = array_merge($providers, appConfig('app.providers', []));
         foreach (get_declared_classes() as $declared) {
             if (strpos($declared, 'Src\\Provider\\') === 0 && !in_array($declared, $providers, true)) {
