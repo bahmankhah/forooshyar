@@ -383,7 +383,6 @@ class AdminController extends Controller
      */
     public function registerAdminMenu(): void
     {
-        echo 'TESTINGFOROOSH';
         add_menu_page(
             __('فروشیار', 'forooshyar'),           // Page title
             __('فروشیار', 'forooshyar'),           // Menu title
