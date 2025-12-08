@@ -115,6 +115,7 @@ class AppServiceProvider extends Provider
         
         // Initialize log cleanup service
         Container::resolve(LogCleanupService::class)->init();
+        
     }
     public function boot() {}
     public function admin() {
