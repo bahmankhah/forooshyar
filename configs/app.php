@@ -10,7 +10,6 @@ return [
     ],
     'providers'=>[
         AppServiceProvider::class,
-        ShortcodeServiceProvider::class,
     ],
     'version'=>'v1',
     'name'=>'donapp-core',
