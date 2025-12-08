@@ -7,9 +7,14 @@ namespace Forooshyar\Services;
  */
 class CacheInvalidationService
 {
-    private CacheService $cacheService;
-    private ErrorHandlingService $errorHandlingService;
-    private LoggingService $loggingService;
+    /** @var CacheService */
+    private $cacheService;
+    
+    /** @var ErrorHandlingService */
+    private $errorHandlingService;
+    
+    /** @var LoggingService */
+    private $loggingService;
     
     public function __construct(
         CacheService $cacheService,

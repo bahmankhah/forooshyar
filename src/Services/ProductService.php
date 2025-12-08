@@ -7,8 +7,11 @@ use WC_Product;
 
 class ProductService 
 {
-    private ConfigService $configService;
-    private TitleBuilder $titleBuilder;
+    /** @var ConfigService */
+    private $configService;
+    
+    /** @var TitleBuilder */
+    private $titleBuilder;
     
     public function __construct(ConfigService $configService, TitleBuilder $titleBuilder)
     {

@@ -7,8 +7,11 @@ class LogCleanupService
     private const CLEANUP_HOOK = 'forooshyar_cleanup_logs_cron';
     private const CLEANUP_INTERVAL = 'daily';
     
-    private ConfigService $configService;
-    private ApiLogService $logService;
+    /** @var ConfigService */
+    private $configService;
+    
+    /** @var ApiLogService */
+    private $logService;
 
     public function __construct(ConfigService $configService, ApiLogService $logService)
     {

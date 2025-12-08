@@ -5,8 +5,12 @@ namespace Forooshyar\Services;
 class ConfigService
 {
     private const OPTION_PREFIX = 'forooshyar_';
-    private array $defaults;
-    private array $templateVariables;
+    
+    /** @var array */
+    private $defaults;
+    
+    /** @var array */
+    private $templateVariables;
 
     public function __construct()
     {

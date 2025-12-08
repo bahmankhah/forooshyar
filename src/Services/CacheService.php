@@ -7,8 +7,11 @@ class CacheService
     private const CACHE_PREFIX = 'forooshyar_';
     private const DEFAULT_TTL = 3600; // 1 hour
     
-    private ConfigService $configService;
-    private array $invalidatedKeys = [];
+    /** @var ConfigService */
+    private $configService;
+    
+    /** @var array */
+    private $invalidatedKeys = [];
 
     public function __construct(ConfigService $configService)
     {

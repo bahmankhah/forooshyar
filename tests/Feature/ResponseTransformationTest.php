@@ -122,7 +122,7 @@ describe('Response Transformation', function () {
         }
         
         // Test static collection method
-        $products = array_map(fn() => generateProductData(), range(1, $faker->numberBetween(2, 5)));
+        $products = array_map(function() { return generateProductData(); }, range(1, $faker->numberBetween(2, 5)));
         $staticCollection = ProductResource::collection($products);
         
         expect($staticCollection)->toBeArray();
@@ -140,7 +140,7 @@ describe('Response Transformation', function () {
         $faker = Faker::create();
         
         // Generate test data
-        $products = array_map(fn() => generateProductData(), range(1, $faker->numberBetween(1, 5)));
+        $products = array_map(function() { return generateProductData(); }, range(1, $faker->numberBetween(1, 5)));
         $count = $faker->numberBetween(count($products), count($products) * 10);
         $maxPages = $faker->numberBetween(1, 20);
         

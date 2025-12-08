@@ -11,9 +11,14 @@ use Throwable;
  */
 class ErrorHandlingService
 {
-    private ConfigService $configService;
-    private CacheService $cacheService;
-    private LoggingService $loggingService;
+    /** @var ConfigService */
+    private $configService;
+    
+    /** @var CacheService */
+    private $cacheService;
+    
+    /** @var LoggingService */
+    private $loggingService;
     
     // Circuit breaker states
     private const CIRCUIT_CLOSED = 'closed';

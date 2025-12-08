@@ -7,7 +7,8 @@ use WPLite\Facades\View;
 
 class AdminController extends Controller
 {
-    private ConfigService $configService;
+    /** @var ConfigService */
+    private $configService;
 
     public function __construct()
     {

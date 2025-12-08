@@ -10,12 +10,20 @@ namespace Forooshyar\Services;
  */
 class PerformanceOptimizationService
 {
-    private ConfigService $configService;
-    private CacheService $cacheService;
-    private LoggingService $loggingService;
+    /** @var ConfigService */
+    private $configService;
     
-    private array $performanceMetrics = [];
-    private array $queryOptimizations = [];
+    /** @var CacheService */
+    private $cacheService;
+    
+    /** @var LoggingService */
+    private $loggingService;
+    
+    /** @var array */
+    private $performanceMetrics = [];
+    
+    /** @var array */
+    private $queryOptimizations = [];
     
     public function __construct(
         ConfigService $configService,

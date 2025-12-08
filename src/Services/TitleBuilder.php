@@ -6,7 +6,8 @@ use WC_Product;
 
 class TitleBuilder
 {
-    private ConfigService $configService;
+    /** @var ConfigService */
+    private $configService;
 
     public function __construct(ConfigService $configService)
     {

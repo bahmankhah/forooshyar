@@ -13,10 +13,17 @@ use WP_REST_Response;
 
 class ProductController extends Controller
 {
-    private ProductService $productService;
-    private CacheService $cacheService;
-    private ErrorHandlingService $errorHandlingService;
-    private ApiLoggingMiddleware $loggingMiddleware;
+    /** @var ProductService */
+    private $productService;
+    
+    /** @var CacheService */
+    private $cacheService;
+    
+    /** @var ErrorHandlingService */
+    private $errorHandlingService;
+    
+    /** @var ApiLoggingMiddleware */
+    private $loggingMiddleware;
 
     public function __construct(
         ProductService $productService = null, 

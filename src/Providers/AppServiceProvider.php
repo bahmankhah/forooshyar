@@ -122,7 +122,7 @@ class AppServiceProvider extends Provider
         add_action('admin_menu', function() {
             $adminController = new \Forooshyar\Controllers\AdminController();
             $adminController->registerAdminMenu();
-        });
+        },20);
         
         // Enqueue admin scripts and styles
         add_action('admin_enqueue_scripts', function($hook) {

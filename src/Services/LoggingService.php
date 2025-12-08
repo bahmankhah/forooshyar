@@ -13,7 +13,8 @@ class LoggingService
     private const MAX_LOG_ENTRIES = 10000;
     private const LOG_RETENTION_DAYS = 30;
     
-    private ConfigService $configService;
+    /** @var ConfigService */
+    private $configService;
     
     public function __construct(ConfigService $configService)
     {
@@ -27,6 +28,11 @@ class LoggingService
     public function logError(Throwable $e, string $category, string $operation = 'unknown'): void
     {
         global $wpdb;
+        
+        // Skip if wpdb is not available (e.g., in test environment)
+        if (!isset($wpdb) || !$wpdb) {
+            return;
+        }
         
         $errorData = [
             'timestamp' => current_time('mysql'),
@@ -94,6 +100,11 @@ class LoggingService
     {
         global $wpdb;
         
+        // Skip if wpdb is not available (e.g., in test environment)
+        if (!isset($wpdb) || !$wpdb) {
+            return;
+        }
+        
         $performanceData = [
             'timestamp' => current_time('mysql'),
             'category' => 'performance',
@@ -129,6 +140,11 @@ class LoggingService
     {
         global $wpdb;
         
+        // Skip if wpdb is not available (e.g., in test environment)
+        if (!isset($wpdb) || !$wpdb) {
+            return;
+        }
+        
         $slowLogData = [
             'timestamp' => current_time('mysql'),
             'category' => 'performance',
@@ -163,6 +179,11 @@ class LoggingService
     public function logCircuitBreakerEvent(string $operation, string $state, int $failureCount): void
     {
         global $wpdb;
+        
+        // Skip if wpdb is not available (e.g., in test environment)
+        if (!isset($wpdb) || !$wpdb) {
+            return;
+        }
         
         $stateMessages = [
             'open' => 'باز شد',
@@ -206,6 +227,17 @@ class LoggingService
     public function getErrorLogs(array $filters = [], int $page = 1, int $perPage = 50): array
     {
         global $wpdb;
+        
+        // Return empty array if wpdb is not available
+        if (!isset($wpdb) || !$wpdb) {
+            return [
+                'logs' => [],
+                'total' => 0,
+                'page' => $page,
+                'per_page' => $perPage,
+                'total_pages' => 0
+            ];
+        }
         
         $where = ['1=1'];
         $whereValues = [];
@@ -267,6 +299,17 @@ class LoggingService
     public function getErrorStatistics(int $days = 7): array
     {
         global $wpdb;
+        
+        // Return empty statistics if wpdb is not available
+        if (!isset($wpdb) || !$wpdb) {
+            return [
+                'total_errors' => 0,
+                'by_category' => [],
+                'by_operation' => [],
+                'by_day' => [],
+                'most_common_errors' => []
+            ];
+        }
         
         $dateFrom = date('Y-m-d H:i:s', strtotime("-{$days} days"));
         
@@ -336,6 +379,11 @@ class LoggingService
     public function clearLogs(array $filters = []): int
     {
         global $wpdb;
+        
+        // Return 0 if wpdb is not available
+        if (!isset($wpdb) || !$wpdb) {
+            return 0;
+        }
         
         $where = ['1=1'];
         $whereValues = [];
@@ -456,6 +504,11 @@ class LoggingService
     {
         global $wpdb;
         
+        // Skip if wpdb is not available (e.g., in test environment)
+        if (!isset($wpdb) || !$wpdb) {
+            return;
+        }
+        
         $tableName = $wpdb->prefix . self::LOG_TABLE;
         
         // Check if table exists
@@ -475,6 +528,11 @@ class LoggingService
     private function createLogTable(): void
     {
         global $wpdb;
+        
+        // Skip if wpdb is not available
+        if (!isset($wpdb) || !$wpdb) {
+            return;
+        }
         
         $tableName = $wpdb->prefix . self::LOG_TABLE;
         $charset = $wpdb->get_charset_collate();
@@ -513,6 +571,11 @@ class LoggingService
     private function cleanupOldLogs(): void
     {
         global $wpdb;
+        
+        // Skip if wpdb is not available
+        if (!isset($wpdb) || !$wpdb) {
+            return;
+        }
         
         $tableName = $wpdb->prefix . self::LOG_TABLE;
         

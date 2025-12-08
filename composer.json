@@ -3,11 +3,12 @@
     "description": "WPLite plugin powered by WPlite",
     "type": "wordpress-plugin",
     "require": {
+        "php": ">=7.4",
         "hsm/wplite": "dev-main"
     },
     "require-dev": {
-        "pestphp/pest": "^2.0",
-        "pestphp/pest-plugin-faker": "^2.0"
+        "phpunit/phpunit": "^9.6",
+        "fakerphp/faker": "^1.21"
     },
     "autoload": {
         "psr-4": {

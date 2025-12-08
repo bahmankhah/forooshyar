@@ -8,7 +8,8 @@ use WP_REST_Response;
 
 class ApiLoggingMiddleware
 {
-    private ApiLogService $logService;
+    /** @var ApiLogService */
+    private $logService;
 
     public function __construct(ApiLogService $logService)
     {
