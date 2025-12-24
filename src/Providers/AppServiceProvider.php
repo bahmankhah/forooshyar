@@ -92,20 +92,20 @@ class AppServiceProvider extends Provider
                     'dateFormat' => get_option('date_format'),
                     'timeFormat' => get_option('time_format'),
                     'strings' => [
-                        'loading' => __('در حال بارگذاری...', 'forooshyar'),
-                        'error' => __('خطا در ارتباط با سرور', 'forooshyar'),
-                        'success' => __('عملیات با موفقیت انجام شد', 'forooshyar'),
-                        'confirm' => __('آیا مطمئن هستید؟', 'forooshyar'),
-                        'cancel' => __('لغو', 'forooshyar'),
-                        'save' => __('ذخیره', 'forooshyar'),
-                        'reset' => __('بازنشانی', 'forooshyar'),
-                        'copy' => __('کپی', 'forooshyar'),
-                        'copied' => __('کپی شد!', 'forooshyar'),
-                        'invalidJson' => __('فرمت JSON نامعتبر است', 'forooshyar'),
-                        'selectAll' => __('انتخاب همه', 'forooshyar'),
-                        'deselectAll' => __('لغو انتخاب همه', 'forooshyar'),
-                        'noData' => __('داده‌ای یافت نشد', 'forooshyar'),
-                        'refresh' => __('بروزرسانی', 'forooshyar')
+                        'loading' => 'در حال بارگذاری...', // __('در حال بارگذاری...', 'forooshyar'),
+                        'error' => 'خطا در ارتباط با سرور', // __('خطا در ارتباط با سرور', 'forooshyar'),
+                        'success' => 'عملیات با موفقیت انجام شد', // __('عملیات با موفقیت انجام شد', 'forooshyar'),
+                        'confirm' => 'آیا مطمئن هستید؟', // __('آیا مطمئن هستید؟', 'forooshyar'),
+                        'cancel' => 'لغو', // __('لغو', 'forooshyar'),
+                        'save' => 'ذخیره', // __('ذخیره', 'forooshyar'),
+                        'reset' => 'بازنشانی', // __('بازنشانی', 'forooshyar'),
+                        'copy' => 'کپی', // __('کپی', 'forooshyar'),
+                        'copied' => 'کپی شد!', // __('کپی شد!', 'forooshyar'),
+                        'invalidJson' => 'فرمت JSON نامعتبر است', // __('فرمت JSON نامعتبر است', 'forooshyar'),
+                        'selectAll' => 'انتخاب همه', // __('انتخاب همه', 'forooshyar'),
+                        'deselectAll' => 'لغو انتخاب همه', // __('لغو انتخاب همه', 'forooshyar'),
+                        'noData' => 'داده‌ای یافت نشد', // __('داده‌ای یافت نشد', 'forooshyar'),
+                        'refresh' => 'بروزرسانی' // __('بروزرسانی', 'forooshyar')
                     ]
                 ]);
                 
