@@ -421,7 +421,7 @@ class AdminController extends Controller
             'products' => [
                 'url' => rest_url('forooshyar/v1/products'),
                 'method' => 'GET',
-                'params' => ['page', 'per_page', 'show_variations']
+                'params' => ['page', 'limit', 'show_variations']
             ],
             'product_by_id' => [
                 'url' => rest_url('forooshyar/v1/products/{id}'),

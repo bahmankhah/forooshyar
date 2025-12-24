@@ -46,7 +46,7 @@ if (!defined('ABSPATH')) {
                                         <option value="<?php echo esc_attr($key); ?>" 
                                                 data-url="<?php echo esc_attr($endpoint['url']); ?>"
                                                 data-method="<?php echo esc_attr($endpoint['method']); ?>"
-                                                data-params="<?php echo esc_attr(json_encode($endpoint['params'])); ?>">
+                                                data-params='<?php echo esc_attr(wp_json_encode($endpoint['params'])); ?>'>
                                             <?php echo esc_html($endpoint['url']); ?> (<?php echo esc_html($endpoint['method']); ?>)
                                         </option>
                                     <?php endforeach; ?>
@@ -498,7 +498,23 @@ jQuery(document).ready(function($) {
     
     function updateEndpointParams() {
         var selectedOption = $('#api-endpoint option:selected');
-        var params = JSON.parse(selectedOption.data('params') || '[]');
+        var paramsData = selectedOption.data('params');
+        var params = [];
+        
+        // Handle different data types
+        if (typeof paramsData === 'string') {
+            try {
+                params = JSON.parse(paramsData);
+            } catch (e) {
+                console.error('Error parsing params:', e);
+                params = [];
+            }
+        } else if (Array.isArray(paramsData)) {
+            params = paramsData;
+        } else if (paramsData) {
+            params = [];
+        }
+        
         var container = $('#api-params-container');
         
         container.empty();
@@ -593,7 +609,13 @@ jQuery(document).ready(function($) {
             }
         });
         
-        $('#api-loading').show();
+        // Map per_page to limit for API compatibility
+        if (params.per_page && !params.limit) {
+            params.limit = params.per_page;
+            delete params.per_page;
+        }
+        
+        $('#api-loading').addClass('is-active');
         $('#test-api-btn').prop('disabled', true);
         
         $.ajax({
@@ -616,7 +638,7 @@ jQuery(document).ready(function($) {
                 displayApiError('<?php _e("خطا در ارتباط با سرور", "forooshyar"); ?>');
             },
             complete: function() {
-                $('#api-loading').hide();
+                $('#api-loading').removeClass('is-active');
                 $('#test-api-btn').prop('disabled', false);
             }
         });
@@ -690,19 +712,40 @@ jQuery(document).ready(function($) {
     
     function loadLogs() {
         var filter = $('#logs-filter').val();
+        var filterParams = {
+            action: 'forooshyar_get_logs',
+            page: currentPage,
+            per_page: logsPerPage
+        };
+        
+        // Apply status filter
+        if (filter === 'success') {
+            filterParams.status_code = 200;
+        } else if (filter === 'error') {
+            // For errors, we'll filter client-side since we need >= 400
+            filterParams.status_code = 0; // Get all and filter
+        }
         
         $.ajax({
             url: ajaxurl,
             type: 'GET',
-            data: {
-                action: 'forooshyar_get_logs',
-                page: currentPage,
-                per_page: logsPerPage,
-                filter: filter
-            },
+            data: filterParams,
             success: function(response) {
                 if (response.success) {
-                    displayLogs(response.data);
+                    var data = response.data;
+                    
+                    // Client-side filter for errors if needed
+                    if (filter === 'error' && data.logs) {
+                        data.logs = data.logs.filter(function(log) {
+                            return log.status_code >= 400;
+                        });
+                    } else if (filter === 'success' && data.logs) {
+                        data.logs = data.logs.filter(function(log) {
+                            return log.status_code >= 200 && log.status_code < 400;
+                        });
+                    }
+                    
+                    displayLogs(data);
                 } else {
                     console.error('خطا در دریافت لاگ‌ها:', response.data);
                     displayLogs({logs: [], total: 0});
@@ -719,25 +762,36 @@ jQuery(document).ready(function($) {
         var tbody = $('#forooshyar-logs-tbody');
         tbody.empty();
         
-        if (data.logs.length === 0) {
+        var logs = data.logs || [];
+        var total = data.total || 0;
+        
+        if (logs.length === 0) {
             tbody.append('<tr><td colspan="6" class="forooshyar-no-logs"><?php _e("هیچ لاگی یافت نشد", "forooshyar"); ?></td></tr>');
+            $('#logs-page-info').text('صفحه 1 از 1');
+            $('#logs-prev-btn').prop('disabled', true);
+            $('#logs-next-btn').prop('disabled', true);
             return;
         }
         
-        data.logs.forEach(function(log) {
+        logs.forEach(function(log) {
+            var statusClass = (log.status_code >= 200 && log.status_code < 400) ? 'success' : 'error';
+            var statusText = (log.status_code >= 200 && log.status_code < 400) ? 'موفق' : 'خطا';
+            var cacheStatus = log.cache_hit ? 'HIT' : 'MISS';
+            var responseTime = parseFloat(log.response_time || 0).toFixed(2);
+            
             var row = '<tr>' +
-                '<td>' + log.timestamp + '</td>' +
-                '<td>' + log.endpoint + '</td>' +
-                '<td>' + log.ip + '</td>' +
-                '<td>' + log.response_time + ' ms</td>' +
-                '<td><span class="status-' + log.status + '">' + log.status + '</span></td>' +
-                '<td>' + log.cache_status + '</td>' +
+                '<td>' + (log.created_at || '-') + '</td>' +
+                '<td>' + (log.endpoint || '-') + '</td>' +
+                '<td>' + (log.ip_address || '-') + '</td>' +
+                '<td>' + responseTime + ' ms</td>' +
+                '<td><span class="status-' + statusClass + '">' + statusText + ' (' + log.status_code + ')</span></td>' +
+                '<td>' + cacheStatus + '</td>' +
                 '</tr>';
             tbody.append(row);
         });
         
         // Update pagination
-        var totalPages = Math.ceil(data.total / logsPerPage);
+        var totalPages = Math.ceil(total / logsPerPage) || 1;
         $('#logs-page-info').text('صفحه ' + currentPage + ' از ' + totalPages);
         $('#logs-prev-btn').prop('disabled', currentPage <= 1);
         $('#logs-next-btn').prop('disabled', currentPage >= totalPages);
