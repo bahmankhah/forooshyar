@@ -17,24 +17,37 @@ use WPLite\Provider;
 
 class AppServiceProvider extends Provider
 {
-    public function register() {}
-    public function bootEarly() {}
+    public function register() {
+        appLogger('Forooshyar: register() method called');
+    }
+    
+    public function bootEarly() {
+        appLogger('Forooshyar: bootEarly() method called');
+    }
+    
     public function admin() {
+        appLogger('Forooshyar: admin() method called - Admin initialization');
         // Admin initialization - register hooks but don't execute translation-dependent code yet
     }
     
     public function onInit() {
+        appLogger('Forooshyar: onInit() method called - Starting initialization');
+        
         // Load Persian text domain - moved to plugins_loaded hook for WordPress 6.5+ compatibility
         add_action('plugins_loaded', function() {
-            // load_plugin_textdomain(
-            //     'forooshyar',
-            //     false,
-            //     dirname(plugin_basename(dirname(dirname(__DIR__)))) . '/languages'
-            // );
+            appLogger('Forooshyar: plugins_loaded hook - Loading text domain');
+            load_plugin_textdomain(
+                'forooshyar',
+                false,
+                dirname(plugin_basename(dirname(dirname(__DIR__)))) . '/languages'
+            );
+            appLogger('Forooshyar: Text domain loaded successfully');
             
             // Set Persian locale if not already set - moved to init hook
             add_action('init', function() {
+                appLogger('Forooshyar: init hook - Setting up Persian locale features');
                 if (get_locale() === 'fa_IR') {
+                    appLogger('Forooshyar: Persian locale detected, setting up filters');
                     // Ensure Persian number formatting
                     add_filter('number_format_i18n', function($formatted, $number, $decimals) {
                         if (get_locale() === 'fa_IR') {
@@ -59,13 +72,17 @@ class AppServiceProvider extends Provider
         
         // Register admin menu - moved from admin() method to ensure translations are loaded
         add_action('admin_menu', function() {
+            appLogger('Forooshyar: admin_menu hook - Registering admin menu');
             $adminController = new \Forooshyar\Controllers\AdminController();
             $adminController->registerAdminMenu();
+            appLogger('Forooshyar: Admin menu registered successfully');
         }, 30);
         
         // Enqueue admin scripts and styles - moved from admin() method
         add_action('admin_enqueue_scripts', function($hook) {
+            appLogger('Forooshyar: admin_enqueue_scripts hook - Hook: ' . $hook);
             if (strpos($hook, 'forooshyar') !== false) {
+                appLogger('Forooshyar: Enqueueing admin assets for forooshyar pages');
                 // Enqueue Persian RTL styles
                 wp_enqueue_style(
                     'forooshyar-admin-rtl',
@@ -92,20 +109,20 @@ class AppServiceProvider extends Provider
                     'dateFormat' => get_option('date_format'),
                     'timeFormat' => get_option('time_format'),
                     'strings' => [
-                        'loading' => 'در حال بارگذاری...', // __('در حال بارگذاری...', 'forooshyar'),
-                        'error' => 'خطا در ارتباط با سرور', // __('خطا در ارتباط با سرور', 'forooshyar'),
-                        'success' => 'عملیات با موفقیت انجام شد', // __('عملیات با موفقیت انجام شد', 'forooshyar'),
-                        'confirm' => 'آیا مطمئن هستید؟', // __('آیا مطمئن هستید؟', 'forooshyar'),
-                        'cancel' => 'لغو', // __('لغو', 'forooshyar'),
-                        'save' => 'ذخیره', // __('ذخیره', 'forooshyar'),
-                        'reset' => 'بازنشانی', // __('بازنشانی', 'forooshyar'),
-                        'copy' => 'کپی', // __('کپی', 'forooshyar'),
-                        'copied' => 'کپی شد!', // __('کپی شد!', 'forooshyar'),
-                        'invalidJson' => 'فرمت JSON نامعتبر است', // __('فرمت JSON نامعتبر است', 'forooshyar'),
-                        'selectAll' => 'انتخاب همه', // __('انتخاب همه', 'forooshyar'),
-                        'deselectAll' => 'لغو انتخاب همه', // __('لغو انتخاب همه', 'forooshyar'),
-                        'noData' => 'داده‌ای یافت نشد', // __('داده‌ای یافت نشد', 'forooshyar'),
-                        'refresh' => 'بروزرسانی' // __('بروزرسانی', 'forooshyar')
+                        'loading' => __('در حال بارگذاری...', 'forooshyar'),
+                        'error' => __('خطا در ارتباط با سرور', 'forooshyar'),
+                        'success' => __('عملیات با موفقیت انجام شد', 'forooshyar'),
+                        'confirm' => __('آیا مطمئن هستید؟', 'forooshyar'),
+                        'cancel' => __('لغو', 'forooshyar'),
+                        'save' => __('ذخیره', 'forooshyar'),
+                        'reset' => __('بازنشانی', 'forooshyar'),
+                        'copy' => __('کپی', 'forooshyar'),
+                        'copied' => __('کپی شد!', 'forooshyar'),
+                        'invalidJson' => __('فرمت JSON نامعتبر است', 'forooshyar'),
+                        'selectAll' => __('انتخاب همه', 'forooshyar'),
+                        'deselectAll' => __('لغو انتخاب همه', 'forooshyar'),
+                        'noData' => __('داده‌ای یافت نشد', 'forooshyar'),
+                        'refresh' => __('بروزرسانی', 'forooshyar')
                     ]
                 ]);
                 
@@ -118,9 +135,14 @@ class AppServiceProvider extends Provider
                 // Enqueue WordPress admin styles for consistency
                 wp_enqueue_style('wp-admin');
                 wp_enqueue_style('dashicons');
+                
+                appLogger('Forooshyar: Admin assets enqueued successfully');
+            } else {
+                appLogger('Forooshyar: Skipping asset enqueue - not a forooshyar page');
             }
         });
         
+        appLogger('Forooshyar: Starting service registration');
         // Register services with proper dependencies
         Container::bind(ConfigService::class, function(){
             return new ConfigService();
@@ -185,11 +207,31 @@ class AppServiceProvider extends Provider
         
         // Initialize log cleanup service
         Container::resolve(LogCleanupService::class)->init();
+        
+        appLogger('Forooshyar: onInit() completed successfully');
     }
-    public function boot() {}
-    public function ajax() {}
-    public function rest() {}
-    public function activate() {}
-    public function deactivate() {}
-    public function uninstall() {}
+    
+    public function boot() {
+        appLogger('Forooshyar: boot() method called');
+    }
+    
+    public function ajax() {
+        appLogger('Forooshyar: ajax() method called');
+    }
+    
+    public function rest() {
+        appLogger('Forooshyar: rest() method called');
+    }
+    
+    public function activate() {
+        appLogger('Forooshyar: activate() method called');
+    }
+    
+    public function deactivate() {
+        appLogger('Forooshyar: deactivate() method called');
+    }
+    
+    public function uninstall() {
+        appLogger('Forooshyar: uninstall() method called');
+    }
 }
