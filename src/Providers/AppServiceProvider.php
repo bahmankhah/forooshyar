@@ -26,11 +26,11 @@ class AppServiceProvider extends Provider
     public function onInit() {
         // Load Persian text domain - moved to plugins_loaded hook for WordPress 6.5+ compatibility
         add_action('plugins_loaded', function() {
-            load_plugin_textdomain(
-                'forooshyar',
-                false,
-                dirname(plugin_basename(dirname(dirname(__DIR__)))) . '/languages'
-            );
+            // load_plugin_textdomain(
+            //     'forooshyar',
+            //     false,
+            //     dirname(plugin_basename(dirname(dirname(__DIR__)))) . '/languages'
+            // );
             
             // Set Persian locale if not already set - moved to init hook
             add_action('init', function() {
