@@ -10,7 +10,7 @@ use WPLite\Facades\App;
 
 if (!defined('ABSPATH')) exit;
 require __DIR__ . '/vendor/autoload.php';
-appLogger('BOOTING MAIN FOROOSHYAR');
 App::setPluginFile(__FILE__);
 App::setPluginPath(plugin_dir_path(__FILE__));
+appLogger('BOOTING MAIN FOROOSHYAR');
 App::boot();
