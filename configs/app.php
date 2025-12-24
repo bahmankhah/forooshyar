@@ -15,6 +15,6 @@ return [
     'name'=>'donapp-core',
     'url'=>getenv('APP_URL'),
     'api'=> [
-        'namespace'=>'wplite/v1',
+        'namespace'=>'forooshyar/v1',
     ],
 ];
