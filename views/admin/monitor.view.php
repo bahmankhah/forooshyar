@@ -384,13 +384,28 @@ if (!defined('ABSPATH')) {
 
 .forooshyar-param-input label {
     display: inline-block;
-    width: 100px;
+    width: 120px;
     font-weight: bold;
 }
 
-.forooshyar-param-input input {
+.forooshyar-param-input input[type="text"],
+.forooshyar-param-input input[type="number"] {
     width: 200px;
     margin-right: 10px;
+}
+
+.forooshyar-param-input input[type="checkbox"].forooshyar-checkbox {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    vertical-align: middle;
+}
+
+.forooshyar-param-input .description {
+    margin-top: 5px;
+    margin-right: 125px;
+    color: #666;
+    font-size: 12px;
 }
 
 .forooshyar-header-meta {
@@ -524,38 +539,50 @@ jQuery(document).ready(function($) {
             return;
         }
         
+        // Persian translations for parameter names
+        var paramTranslations = {
+            'id': 'شناسه',
+            'page': 'صفحه',
+            'per_page': 'تعداد در صفحه',
+            'limit': 'تعداد',
+            'show_variations': 'نمایش تنوعات',
+            'ids': 'شناسه‌ها',
+            'slugs': 'نام‌ها'
+        };
+        
         params.forEach(function(param) {
             var inputType = 'text';
             var placeholder = '';
             var description = '';
             var defaultValue = '';
+            var labelText = paramTranslations[param] || param;
             
             // Set appropriate input types and placeholders based on parameter name
             switch(param) {
                 case 'id':
                     inputType = 'number';
-                    placeholder = 'مثال: 123';
+                    placeholder = 'مثال: ۱۲۳';
                     description = 'شناسه عددی محصول';
                     break;
                 case 'page':
                     inputType = 'number';
-                    placeholder = 'مثال: 1';
-                    description = 'شماره صفحه (پیش‌فرض: 1)';
+                    placeholder = 'مثال: ۱';
+                    description = 'شماره صفحه (پیش‌فرض: ۱)';
                     defaultValue = '1';
                     break;
                 case 'per_page':
                 case 'limit':
                     inputType = 'number';
-                    placeholder = 'مثال: 10';
-                    description = 'تعداد محصولات در هر صفحه (حداکثر: 100)';
+                    placeholder = 'مثال: ۱۰';
+                    description = 'تعداد محصولات در هر صفحه (حداکثر: ۱۰۰)';
                     defaultValue = '10';
                     break;
                 case 'show_variations':
                     inputType = 'checkbox';
-                    description = 'نمایش تنوعات محصولات';
+                    description = 'نمایش تنوعات محصولات متغیر';
                     break;
                 case 'ids':
-                    placeholder = 'مثال: 1,2,3,4';
+                    placeholder = 'مثال: ۱,۲,۳,۴';
                     description = 'شناسه‌های محصولات جدا شده با کاما';
                     break;
                 case 'slugs':
@@ -567,10 +594,10 @@ jQuery(document).ready(function($) {
             }
             
             var inputHtml = '<div class="forooshyar-param-input">' +
-                '<label for="param-' + param + '">' + param + ':</label>';
+                '<label for="param-' + param + '">' + labelText + ':</label>';
             
             if (inputType === 'checkbox') {
-                inputHtml += '<input type="checkbox" id="param-' + param + '" name="' + param + '" checked>';
+                inputHtml += '<input type="checkbox" id="param-' + param + '" name="' + param + '" class="forooshyar-checkbox" checked>';
             } else {
                 inputHtml += '<input type="' + inputType + '" id="param-' + param + '" name="' + param + '" class="regular-text" placeholder="' + placeholder + '" value="' + defaultValue + '">';
             }

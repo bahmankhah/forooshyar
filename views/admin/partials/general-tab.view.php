@@ -45,6 +45,7 @@ $general_config = $config['general'] ?? [];
                     $default_variables = [
                         'product_name' => __('نام محصول', 'forooshyar'),
                         'variation_name' => __('نام تنوع', 'forooshyar'),
+                        'variation_suffix' => __('پسوند تنوع', 'forooshyar'),
                         'category' => __('دسته‌بندی', 'forooshyar'),
                         'sku' => __('کد محصول', 'forooshyar'),
                         'brand' => __('برند', 'forooshyar'),
@@ -208,25 +209,23 @@ $general_config = $config['general'] ?? [];
 
 <script>
 function insertVariable(variable) {
-    const input = document.getElementById('title_template');
-    const cursorPos = input.selectionStart;
-    const textBefore = input.value.substring(0, cursorPos);
-    const textAfter = input.value.substring(input.selectionEnd);
+    var input = document.getElementById('title_template');
+    var cursorPos = input.selectionStart;
+    var textBefore = input.value.substring(0, cursorPos);
+    var textAfter = input.value.substring(input.selectionEnd);
     
     input.value = textBefore + variable + textAfter;
     input.focus();
     input.setSelectionRange(cursorPos + variable.length, cursorPos + variable.length);
     
-    // Trigger preview update
     updateTemplatePreview();
     
-    // Add visual feedback
-    const variableItems = document.querySelectorAll('.forooshyar-variable-item');
-    variableItems.forEach(item => {
+    var variableItems = document.querySelectorAll('.forooshyar-variable-item');
+    variableItems.forEach(function(item) {
         if (item.querySelector('code').textContent === variable) {
             item.style.background = '#d4edda';
             item.style.borderColor = '#28a745';
-            setTimeout(() => {
+            setTimeout(function() {
                 item.style.background = '';
                 item.style.borderColor = '';
             }, 500);
@@ -235,37 +234,48 @@ function insertVariable(variable) {
 }
 
 function updateTemplatePreview() {
-    const template = document.getElementById('title_template').value;
-    const preview = document.getElementById('template-preview');
+    var template = document.getElementById('title_template').value;
+    var preview = document.getElementById('template-preview');
+    var customSuffixInput = document.getElementById('custom_suffix');
+    var customSuffix = customSuffixInput ? customSuffixInput.value : '';
     
-    // Sample data for preview
-    const sampleData = {
-        '{{product_name}}': 'نمونه محصول',
-        '{{variation_name}}': 'تنوع قرمز',
-        '{{category}}': 'لباس',
-        '{{sku}}': 'PRD-001',
-        '{{brand}}': 'برند نمونه',
-        '{{custom_suffix}}': ' - ویژه'
+    var sampleData = {
+        'product_name': 'نمونه محصول',
+        'variation_name': 'قرمز',
+        'variation_suffix': ' - قرمز، سایز L',
+        'category': 'لباس',
+        'sku': 'PRD-001',
+        'brand': 'برند نمونه',
+        'custom_suffix': customSuffix || ''
     };
     
-    let previewText = template;
-    for (const [variable, value] of Object.entries(sampleData)) {
-        previewText = previewText.replace(new RegExp(variable.replace(/[{}]/g, '\\$&'), 'g'), value);
-    }
+    var previewText = template;
     
-    // If no template or no variables, show default
-    if (!previewText || previewText === template) {
+    Object.keys(sampleData).forEach(function(key) {
+        var pattern = '{{' + key + '}}';
+        while (previewText.indexOf(pattern) !== -1) {
+            previewText = previewText.replace(pattern, sampleData[key]);
+        }
+    });
+    
+    if (!previewText.trim()) {
         previewText = 'نمونه محصول';
     }
     
     preview.textContent = previewText;
 }
 
-// Initialize preview on page load
 document.addEventListener('DOMContentLoaded', function() {
     updateTemplatePreview();
     
-    // Update preview on input change
-    document.getElementById('title_template').addEventListener('input', updateTemplatePreview);
+    var titleInput = document.getElementById('title_template');
+    if (titleInput) {
+        titleInput.addEventListener('input', updateTemplatePreview);
+    }
+    
+    var customSuffixInput = document.getElementById('custom_suffix');
+    if (customSuffixInput) {
+        customSuffixInput.addEventListener('input', updateTemplatePreview);
+    }
 });
 </script>

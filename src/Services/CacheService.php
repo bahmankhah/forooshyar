@@ -278,13 +278,14 @@ class CacheService
         
         $prefix = $this->buildCacheKey('');
         
-        // Count cache entries
+        // Count cache entries (exclude timeout entries)
         $count = 0;
         if (isset($wpdb) && method_exists($wpdb, 'get_var') && isset($wpdb->options)) {
             $count = $wpdb->get_var(
                 $wpdb->prepare(
-                    "SELECT COUNT(*) FROM {$wpdb->options} WHERE option_name LIKE %s",
-                    '_transient_' . $prefix . '%'
+                    "SELECT COUNT(*) FROM {$wpdb->options} WHERE option_name LIKE %s AND option_name NOT LIKE %s",
+                    '_transient_' . $prefix . '%',
+                    '_transient_timeout_%'
                 )
             );
         }
