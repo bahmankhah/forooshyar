@@ -2,7 +2,7 @@
 
 use WPLite\Facades\App;
 /**
- * Plugin Name: WPLite Plugin
+ * Plugin Name: فروشیار
  * Description: WPLite Powered Wordpress Plugin.
  * Version: 1.0
  * Author: Hesam
