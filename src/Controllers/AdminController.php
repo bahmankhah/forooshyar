@@ -341,15 +341,23 @@ class AdminController extends Controller
             $publishedProducts = $totalProducts->publish ?? 0;
             $publishedVariations = $totalVariations->publish ?? 0;
             
+            // Use cache hit rate from API logs, fallback to cache stats option
+            $cacheHitRate = $performanceMetrics['cache_hit_rate_24h'];
+            if ($cacheHitRate == 0 && isset($cacheStats['hit_rate']) && $cacheStats['hit_rate'] > 0) {
+                $cacheHitRate = $cacheStats['hit_rate'];
+            }
+            
             return [
                 'total_requests' => $performanceMetrics['requests_last_24h'],
-                'cache_hit_rate' => $performanceMetrics['cache_hit_rate_24h'],
+                'cache_hit_rate' => $cacheHitRate,
                 'average_response_time' => $performanceMetrics['avg_response_time_24h'],
                 'today_requests' => $performanceMetrics['requests_last_24h'],
                 'total_products' => $publishedProducts,
                 'total_variations' => $publishedVariations,
                 'cache_entries' => $cacheStats['total_entries'],
                 'cache_enabled' => $cacheStats['enabled'],
+                'cache_hits' => $cacheStats['hits'] ?? 0,
+                'cache_misses' => $cacheStats['misses'] ?? 0,
                 'top_endpoints' => $analytics['top_endpoints'] ?? [],
                 'error_rate' => $performanceMetrics['error_rate_24h'],
                 'max_response_time' => $performanceMetrics['max_response_time_24h'],

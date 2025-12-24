@@ -112,8 +112,12 @@ class ApiLoggingMiddleware
     private function detectCacheHit(WP_REST_Response $response): bool
     {
         // Check global cache hit indicator set by CacheService
+        // This is the primary method for detecting cache hits
         if (isset($GLOBALS['forooshyar_cache_hit'])) {
-            return (bool) $GLOBALS['forooshyar_cache_hit'];
+            $cacheHit = (bool) $GLOBALS['forooshyar_cache_hit'];
+            // Reset the global for the next request
+            unset($GLOBALS['forooshyar_cache_hit']);
+            return $cacheHit;
         }
         
         // Check response headers for cache indicators

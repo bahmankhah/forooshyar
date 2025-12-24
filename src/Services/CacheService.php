@@ -24,6 +24,8 @@ class CacheService
     public function get(string $key)
     {
         if (!$this->isCacheEnabled()) {
+            // Set global to false when cache is disabled
+            $GLOBALS['forooshyar_cache_hit'] = false;
             return false;
         }
         
@@ -294,13 +296,30 @@ class CacheService
             'average_time' => 0
         ]);
         
+        // Get cache hit/miss stats from option
+        $cacheHitStats = get_option('forooshyar_cache_stats', [
+            'hits' => 0,
+            'misses' => 0,
+            'last_reset' => time()
+        ]);
+        
+        // Calculate hit rate from option stats
+        $totalRequests = $cacheHitStats['hits'] + $cacheHitStats['misses'];
+        $hitRate = $totalRequests > 0 
+            ? round(($cacheHitStats['hits'] / $totalRequests) * 100, 2) 
+            : 0;
+        
         return [
             'enabled' => $this->isCacheEnabled(),
             'total_entries' => (int) $count,
             'invalidated_keys' => count($this->invalidatedKeys),
             'ttl' => $this->getDefaultTtl(),
             'prefix' => $prefix,
-            'bulk_operations' => $bulkStats
+            'bulk_operations' => $bulkStats,
+            'hits' => $cacheHitStats['hits'],
+            'misses' => $cacheHitStats['misses'],
+            'hit_rate' => $hitRate,
+            'last_reset' => $cacheHitStats['last_reset']
         ];
     }
 
