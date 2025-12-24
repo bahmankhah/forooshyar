@@ -85,9 +85,10 @@ if (!defined('ABSPATH')) {
         </div>
 
         <div class="forooshyar-form-actions">
-            <button type="submit" class="button button-primary button-large">
+            <button type="submit" class="button button-primary button-large" id="forooshyar-save-btn">
                 <?php _e('ذخیره تنظیمات', 'forooshyar'); ?>
             </button>
+            <span id="forooshyar-save-spinner" class="spinner" style="float: none; margin-top: 0;"></span>
             <button type="button" id="forooshyar-reset-settings" class="button button-secondary">
                 <?php _e('بازگردانی به پیش‌فرض', 'forooshyar'); ?>
             </button>
@@ -214,6 +215,13 @@ jQuery(document).ready(function($) {
     $('#forooshyar-settings-form').on('submit', function(e) {
         e.preventDefault();
         
+        var $saveBtn = $('#forooshyar-save-btn');
+        var $spinner = $('#forooshyar-save-spinner');
+        
+        // Show loading state
+        $saveBtn.prop('disabled', true);
+        $spinner.addClass('is-active');
+        
         var formData = new FormData(this);
         formData.append('action', 'forooshyar_save_settings');
         
@@ -232,6 +240,11 @@ jQuery(document).ready(function($) {
             },
             error: function() {
                 showMessage('<?php _e("خطا در ارتباط با سرور", "forooshyar"); ?>', 'error');
+            },
+            complete: function() {
+                // Hide loading state
+                $saveBtn.prop('disabled', false);
+                $spinner.removeClass('is-active');
             }
         });
     });

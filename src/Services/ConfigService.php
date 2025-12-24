@@ -39,7 +39,26 @@ class ConfigService
     public function set(string $key, $value): bool
     {
         $optionKey = self::OPTION_PREFIX . $key;
-        return update_option($optionKey, $value);
+        
+        // Get current value to check if it's actually changing
+        $currentValue = get_option($optionKey);
+        
+        // If value is the same, return true (no error, just no change needed)
+        if ($currentValue === $value) {
+            return true;
+        }
+        
+        // update_option returns false if value didn't change OR on failure
+        // We already checked for no-change above, so false here means actual failure
+        $result = update_option($optionKey, $value);
+        
+        // If update_option returns false but the value now matches, it succeeded
+        if (!$result) {
+            $newValue = get_option($optionKey);
+            return $newValue === $value;
+        }
+        
+        return true;
     }
 
     /**

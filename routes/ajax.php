@@ -31,9 +31,9 @@ Route::ajax(function ($router) {
     // Template validation
     $router->post('forooshyar_validate_template', [AdminController::class, 'validateTemplate'])->make();
     
-    // Cache management (will be implemented in later tasks)
-    // $router->post('forooshyar_cache_action', [AdminController::class, 'cacheAction'])->make();
-    // $router->get('forooshyar_get_cache_stats', [AdminController::class, 'getCacheStats'])->make();
+    // Cache management
+    $router->post('forooshyar_cache_action', [AdminController::class, 'cacheAction'])->make();
+    $router->get('forooshyar_get_cache_stats', [AdminController::class, 'getCacheStats'])->make();
     
     // Settings export/import
     $router->get('forooshyar_export_settings', [AdminController::class, 'exportSettings'])->make();

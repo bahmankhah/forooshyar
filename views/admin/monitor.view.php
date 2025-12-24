@@ -734,7 +734,15 @@ jQuery(document).ready(function($) {
         $('#avg-response-time').text((stats.average_response_time || 0) + ' ms');
         $('#today-requests').text(stats.today_requests || 0);
         $('#total-products').text(stats.total_products || 0);
-        $('#cache-entries').text(stats.cache_entries || 0);
+        
+        // Show cache entries with object cache indicator
+        var cacheEntriesText = stats.cache_entries || 0;
+        if (stats.using_object_cache) {
+            // When using object cache (Redis/Memcached), show hits count instead
+            // because transients are not stored in database
+            cacheEntriesText = (stats.cache_hits || 0) + ' <?php _e("هیت", "forooshyar"); ?>';
+        }
+        $('#cache-entries').text(cacheEntriesText);
     }
     
     function loadLogs() {

@@ -278,16 +278,44 @@ class CacheService
         
         $prefix = $this->buildCacheKey('');
         
-        // Count cache entries (exclude timeout entries)
+        // Check if external object cache is being used (with fallback for older WP versions)
+        $usingObjectCache = \function_exists('wp_using_ext_object_cache') 
+            ? wp_using_ext_object_cache() 
+            : (defined('WP_REDIS_DISABLED') && !WP_REDIS_DISABLED) || \class_exists('Redis');
+        
+        // Get cache hit/miss stats from option
+        $cacheHitStats = get_option('forooshyar_cache_stats', [
+            'hits' => 0,
+            'misses' => 0,
+            'last_reset' => time()
+        ]);
+        
+        // Count cache entries
         $count = 0;
-        if (isset($wpdb) && method_exists($wpdb, 'get_var') && isset($wpdb->options)) {
-            $count = $wpdb->get_var(
-                $wpdb->prepare(
-                    "SELECT COUNT(*) FROM {$wpdb->options} WHERE option_name LIKE %s AND option_name NOT LIKE %s",
-                    '_transient_' . $prefix . '%',
-                    '_transient_timeout_%'
-                )
-            );
+        
+        if ($usingObjectCache) {
+            // When using external object cache (Redis/Memcached), transients are NOT in database
+            // We can only show the number of cache hits as an indicator of cache activity
+            // The actual entries are stored in Redis/Memcached and we can't count them directly
+            $count = $cacheHitStats['hits'];
+        } else {
+            // Count from database when not using object cache
+            if (isset($wpdb) && method_exists($wpdb, 'get_var') && isset($wpdb->options)) {
+                // Count transients with our prefix (excluding timeout entries)
+                $escapedPrefix = method_exists($wpdb, 'esc_like') 
+                    ? $wpdb->esc_like($prefix) 
+                    : addcslashes($prefix, '_%\\');
+                    
+                $count = (int) $wpdb->get_var(
+                    $wpdb->prepare(
+                        "SELECT COUNT(*) FROM {$wpdb->options} 
+                         WHERE option_name LIKE %s 
+                         AND option_name NOT LIKE %s",
+                        "_transient_{$escapedPrefix}%",
+                        '_transient_timeout_%'
+                    )
+                );
+            }
         }
         
         // Get bulk operation stats
@@ -295,13 +323,6 @@ class CacheService
             'total_operations' => 0,
             'total_products_processed' => 0,
             'average_time' => 0
-        ]);
-        
-        // Get cache hit/miss stats from option
-        $cacheHitStats = get_option('forooshyar_cache_stats', [
-            'hits' => 0,
-            'misses' => 0,
-            'last_reset' => time()
         ]);
         
         // Calculate hit rate from option stats
@@ -312,8 +333,9 @@ class CacheService
         
         return [
             'enabled' => $this->isCacheEnabled(),
-            'total_entries' => (int) $count,
-            'invalidated_keys' => count($this->invalidatedKeys),
+            'total_entries' => $count,
+            'using_object_cache' => $usingObjectCache,
+            'invalidated_keys' => \count($this->invalidatedKeys),
             'ttl' => $this->getDefaultTtl(),
             'prefix' => $prefix,
             'bulk_operations' => $bulkStats,
@@ -378,7 +400,7 @@ class CacheService
         $GLOBALS['forooshyar_cache_hit'] = true;
         
         // Skip database operations in test environment
-        if (defined('PHPUNIT_COMPOSER_INSTALL') || (function_exists('wp_get_environment_type') && wp_get_environment_type() === 'test')) {
+        if (\defined('PHPUNIT_COMPOSER_INSTALL') || (\function_exists('wp_get_environment_type') && wp_get_environment_type() === 'test')) {
             return;
         }
         
@@ -400,7 +422,7 @@ class CacheService
             ];
         }
         
-        update_option('forooshyar_cache_stats', $stats);
+        update_option('forooshyar_cache_stats', $stats, false);
     }
 
     /**
@@ -412,7 +434,7 @@ class CacheService
         $GLOBALS['forooshyar_cache_hit'] = false;
         
         // Skip database operations in test environment
-        if (defined('PHPUNIT_COMPOSER_INSTALL') || (function_exists('wp_get_environment_type') && wp_get_environment_type() === 'test')) {
+        if (\defined('PHPUNIT_COMPOSER_INSTALL') || (\function_exists('wp_get_environment_type') && wp_get_environment_type() === 'test')) {
             return;
         }
         
@@ -434,7 +456,7 @@ class CacheService
             ];
         }
         
-        update_option('forooshyar_cache_stats', $stats);
+        update_option('forooshyar_cache_stats', $stats, false);
     }
 
     /**

@@ -358,6 +358,7 @@ class AdminController extends Controller
                 'cache_enabled' => $cacheStats['enabled'],
                 'cache_hits' => $cacheStats['hits'] ?? 0,
                 'cache_misses' => $cacheStats['misses'] ?? 0,
+                'using_object_cache' => $cacheStats['using_object_cache'] ?? false,
                 'top_endpoints' => $analytics['top_endpoints'] ?? [],
                 'error_rate' => $performanceMetrics['error_rate_24h'],
                 'max_response_time' => $performanceMetrics['max_response_time_24h'],
@@ -1629,6 +1630,107 @@ class AdminController extends Controller
             
         } catch (\Exception $e) {
             error_log('خطا در ثبت لاگ بازیابی: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get cache statistics via AJAX
+     */
+    public function getCacheStats(): void
+    {
+        // Check user permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('شما مجوز دسترسی به این بخش را ندارید', 'forooshyar')]);
+            return;
+        }
+
+        try {
+            $cacheService = new \Forooshyar\Services\CacheService($this->configService);
+            $stats = $cacheService->getStats();
+            
+            // Format size for display
+            $sizeInKb = 0;
+            if (isset($stats['total_entries']) && is_numeric($stats['total_entries'])) {
+                // Estimate size based on average entry size (rough estimate)
+                $sizeInKb = round($stats['total_entries'] * 2, 2); // ~2KB per entry average
+            }
+            
+            wp_send_json_success([
+                'keys_count' => $stats['total_entries'] ?? 0,
+                'size' => $sizeInKb > 1024 ? round($sizeInKb / 1024, 2) . ' MB' : $sizeInKb . ' KB',
+                'hit_rate' => $stats['hit_rate'] ?? 0,
+                'hits' => $stats['hits'] ?? 0,
+                'misses' => $stats['misses'] ?? 0,
+                'enabled' => $stats['enabled'] ?? false,
+                'using_object_cache' => $stats['using_object_cache'] ?? false,
+                'ttl' => $stats['ttl'] ?? 3600
+            ]);
+            
+        } catch (\Exception $e) {
+            wp_send_json_error([
+                'message' => __('خطا در دریافت آمار کش: ', 'forooshyar') . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Perform cache action via AJAX
+     */
+    public function cacheAction(): void
+    {
+        // Verify nonce for security
+        if (!wp_verify_nonce($_POST['nonce'] ?? '', 'forooshyar_cache')) {
+            wp_send_json_error(['message' => __('خطای امنیتی', 'forooshyar')]);
+            return;
+        }
+
+        // Check user permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('شما مجوز دسترسی به این بخش را ندارید', 'forooshyar')]);
+            return;
+        }
+
+        try {
+            $cacheService = new \Forooshyar\Services\CacheService($this->configService);
+            $action = sanitize_text_field($_POST['cache_action'] ?? '');
+            
+            switch ($action) {
+                case 'clear_all':
+                    $cacheService->flush();
+                    // Also reset cache stats
+                    update_option('forooshyar_cache_stats', [
+                        'hits' => 0,
+                        'misses' => 0,
+                        'last_reset' => time()
+                    ]);
+                    $message = __('تمام کش با موفقیت پاک شد', 'forooshyar');
+                    break;
+                    
+                case 'clear_products':
+                    $cacheService->invalidateByPattern('product');
+                    $message = __('کش محصولات با موفقیت پاک شد', 'forooshyar');
+                    break;
+                    
+                case 'warmup':
+                    // Warmup cache by fetching first page of products
+                    $productController = new \Forooshyar\Controllers\ProductController();
+                    $request = new \WP_REST_Request('GET', '/forooshyar/v1/products');
+                    $request->set_param('limit', 50);
+                    $productController->index($request);
+                    $message = __('کش با موفقیت گرم شد', 'forooshyar');
+                    break;
+                    
+                default:
+                    wp_send_json_error(['message' => __('عملیات نامعتبر', 'forooshyar')]);
+                    return;
+            }
+            
+            wp_send_json_success(['message' => $message]);
+            
+        } catch (\Exception $e) {
+            wp_send_json_error([
+                'message' => __('خطا در عملیات کش: ', 'forooshyar') . $e->getMessage()
+            ]);
         }
     }
 }
