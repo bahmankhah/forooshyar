@@ -359,10 +359,15 @@
                 const $this = $(this);
                 const tooltip = $this.data('tooltip-fa');
                 
-                $this.attr('title', tooltip).tooltip({
-                    position: { my: "right+15 center", at: "left center" },
-                    content: tooltip
-                });
+                // Use native title attribute as fallback if jQuery UI tooltip is not available
+                if ($.fn.tooltip) {
+                    $this.attr('title', tooltip).tooltip({
+                        position: { my: "right+15 center", at: "left center" },
+                        content: tooltip
+                    });
+                } else {
+                    $this.attr('title', tooltip);
+                }
             });
         }
     };

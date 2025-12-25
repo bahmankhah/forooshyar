@@ -306,6 +306,20 @@
     color: var(--forooshyar-primary);
 }
 
+/* Variable buttons in template section */
+.forooshyar-variable-item code {
+    background: var(--forooshyar-primary) !important;
+    justify-content: space-between;
+    color: white !important;
+    border: none !important;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    min-width: 80px;
+    text-align: center;
+}
+
 /* Messages */
 .forooshyar-messages {
     margin-top: 1.5rem;

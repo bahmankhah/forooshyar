@@ -95,7 +95,7 @@ class AppServiceProvider extends Provider
                 wp_enqueue_script(
                     'forooshyar-admin-persian',
                     plugin_dir_url(dirname(dirname(__DIR__))) . 'assets/js/admin-persian.js',
-                    ['jquery', 'jquery-ui-tooltip'],
+                    ['jquery'],
                     '1.0.0',
                     true
                 );

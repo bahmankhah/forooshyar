@@ -177,16 +177,23 @@ class AdminController extends Controller
         try {
             $start_time = microtime(true);
             
+            // Reset cache hit tracking before the call
+            unset($GLOBALS['forooshyar_cache_hit']);
+            
             // Make internal API call
             $response = $this->makeApiCall($endpoint, $params);
             
             $end_time = microtime(true);
             $response_time = round(($end_time - $start_time) * 1000, 2);
+            
+            // Get cache status from the global that was set during the request
+            $cacheHit = isset($GLOBALS['forooshyar_cache_hit']) ? $GLOBALS['forooshyar_cache_hit'] : false;
+            $cache_status = $cacheHit ? 'hit' : 'miss';
 
             wp_send_json_success([
                 'response' => $response,
                 'response_time' => $response_time,
-                'cache_status' => $this->getCacheStatus($endpoint, $params)
+                'cache_status' => $cache_status
             ]);
         } catch (Exception $e) {
             wp_send_json_error([

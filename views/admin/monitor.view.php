@@ -251,10 +251,11 @@ if (!defined('ABSPATH')) {
     font-size: 12px;
     line-height: 1.5;
     max-height: 400px;
-    overflow-y: auto;
-    white-space: pre-wrap;
-    word-wrap: break-word;
+    overflow: auto;
+    white-space: pre;
     position: relative;
+    direction: ltr;
+    text-align: left;
 }
 
 .forooshyar-json-viewer .json-key {
@@ -814,11 +815,28 @@ jQuery(document).ready(function($) {
             var cacheStatus = log.cache_hit ? 'HIT' : 'MISS';
             var responseTime = parseFloat(log.response_time || 0).toFixed(2);
             
+            // Format date to Persian/Jalali with time
+            var formattedDate = '-';
+            if (log.created_at) {
+                var date = new Date(log.created_at);
+                if (!isNaN(date.getTime())) {
+                    // Use JalaliCalendar if available, otherwise format in LTR
+                    if (typeof JalaliCalendar !== 'undefined') {
+                        formattedDate = JalaliCalendar.format(date, 'Y/m/d') + ' ' + 
+                            PersianNumber.toPersian(date.getHours().toString().padStart(2, '0') + ':' + 
+                            date.getMinutes().toString().padStart(2, '0') + ':' + 
+                            date.getSeconds().toString().padStart(2, '0'));
+                    } else {
+                        formattedDate = date.toLocaleString('fa-IR');
+                    }
+                }
+            }
+            
             var row = '<tr>' +
-                '<td>' + (log.created_at || '-') + '</td>' +
-                '<td>' + (log.endpoint || '-') + '</td>' +
-                '<td>' + (log.ip_address || '-') + '</td>' +
-                '<td>' + responseTime + ' ms</td>' +
+                '<td dir="ltr" style="text-align: right;">' + formattedDate + '</td>' +
+                '<td dir="ltr">' + (log.endpoint || '-') + '</td>' +
+                '<td dir="ltr">' + (log.ip_address || '-') + '</td>' +
+                '<td dir="ltr">' + responseTime + ' ms</td>' +
                 '<td><span class="status-' + statusClass + '">' + statusText + ' (' + log.status_code + ')</span></td>' +
                 '<td>' + cacheStatus + '</td>' +
                 '</tr>';
