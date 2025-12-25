@@ -44,25 +44,17 @@ class AIAgentAdminController
      */
     public function registerMenus()
     {
-        // Main AI Agent submenu under parent plugin
+        // Main AI Agent submenu under parent plugin (Dashboard)
         add_submenu_page(
             'forooshyar',
-            __('AI Sales Agent', 'forooshyar'),
-            __('AI Sales Agent', 'forooshyar'),
+            __('دستیار فروش هوشمند', 'forooshyar'),
+            __('دستیار هوشمند', 'forooshyar'),
             'manage_woocommerce',
             'forooshyar-ai-agent',
             [$this, 'dashboardPage']
         );
-
-        // Settings submenu
-        add_submenu_page(
-            'forooshyar',
-            __('AI Agent Settings', 'forooshyar'),
-            __('AI Settings', 'forooshyar'),
-            'manage_options',
-            'forooshyar-ai-settings',
-            [$this, 'settingsPage']
-        );
+        
+        // Note: AI Settings menu removed - settings are now in the main settings page as a tab
     }
 
     /**

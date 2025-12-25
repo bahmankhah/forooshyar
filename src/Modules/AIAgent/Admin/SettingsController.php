@@ -80,13 +80,13 @@ class SettingsController
         check_ajax_referer('aiagent_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(['message' => __('Unauthorized', 'forooshyar')], 403);
+            wp_send_json_error(['message' => __('دسترسی غیرمجاز', 'forooshyar')], 403);
         }
 
         $data = isset($_POST['settings']) ? $_POST['settings'] : [];
         
         if (empty($data)) {
-            wp_send_json_error(['message' => __('No settings provided', 'forooshyar')], 400);
+            wp_send_json_error(['message' => __('تنظیماتی ارائه نشده', 'forooshyar')], 400);
         }
 
         $result = $this->settings->bulkUpdate($data);
@@ -94,13 +94,13 @@ class SettingsController
         if ($result['success']) {
             wp_send_json_success([
                 'message' => sprintf(
-                    __('%d settings saved successfully', 'forooshyar'),
+                    __('%d تنظیم با موفقیت ذخیره شد', 'forooshyar'),
                     $result['updated']
                 ),
             ]);
         } else {
             wp_send_json_error([
-                'message' => __('Some settings could not be saved', 'forooshyar'),
+                'message' => __('برخی تنظیمات ذخیره نشدند', 'forooshyar'),
                 'errors' => $result['errors'],
             ], 400);
         }
@@ -116,7 +116,7 @@ class SettingsController
         check_ajax_referer('aiagent_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(['message' => __('Unauthorized', 'forooshyar')], 403);
+            wp_send_json_error(['message' => __('دسترسی غیرمجاز', 'forooshyar')], 403);
         }
 
         $section = isset($_POST['section']) ? sanitize_key($_POST['section']) : null;
@@ -134,7 +134,7 @@ class SettingsController
         }
 
         wp_send_json_success([
-            'message' => __('Settings reset to defaults', 'forooshyar'),
+            'message' => __('تنظیمات به حالت پیش‌فرض بازگردانده شد', 'forooshyar'),
         ]);
     }
 
@@ -148,7 +148,7 @@ class SettingsController
         check_ajax_referer('aiagent_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(['message' => __('Unauthorized', 'forooshyar')], 403);
+            wp_send_json_error(['message' => __('دسترسی غیرمجاز', 'forooshyar')], 403);
         }
 
         $includeSecrets = isset($_POST['include_secrets']) && $_POST['include_secrets'] === 'true';
@@ -171,19 +171,19 @@ class SettingsController
         check_ajax_referer('aiagent_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(['message' => __('Unauthorized', 'forooshyar')], 403);
+            wp_send_json_error(['message' => __('دسترسی غیرمجاز', 'forooshyar')], 403);
         }
 
         $jsonData = isset($_POST['settings_json']) ? wp_unslash($_POST['settings_json']) : '';
         
         if (empty($jsonData)) {
-            wp_send_json_error(['message' => __('No settings data provided', 'forooshyar')], 400);
+            wp_send_json_error(['message' => __('داده تنظیماتی ارائه نشده', 'forooshyar')], 400);
         }
 
         $data = json_decode($jsonData, true);
         
         if (json_last_error() !== JSON_ERROR_NONE) {
-            wp_send_json_error(['message' => __('Invalid JSON format', 'forooshyar')], 400);
+            wp_send_json_error(['message' => __('فرمت JSON نامعتبر', 'forooshyar')], 400);
         }
 
         $settings = isset($data['settings']) ? $data['settings'] : $data;
@@ -192,13 +192,13 @@ class SettingsController
         if (empty($result['errors'])) {
             wp_send_json_success([
                 'message' => sprintf(
-                    __('%d settings imported successfully', 'forooshyar'),
+                    __('%d تنظیم با موفقیت وارد شد', 'forooshyar'),
                     $result['imported']
                 ),
             ]);
         } else {
             wp_send_json_error([
-                'message' => __('Some settings could not be imported', 'forooshyar'),
+                'message' => __('برخی تنظیمات وارد نشدند', 'forooshyar'),
                 'imported' => $result['imported'],
                 'errors' => $result['errors'],
             ], 400);
