@@ -243,6 +243,12 @@ $tierName = isset($subscriptionStatus['tier_name']) ? $subscriptionStatus['tier_
 
     <!-- AI Agent specific actions -->
     <div class="aiagent-actions">
+        <button type="button" class="button button-primary button-large" id="aiagent-save-settings">
+            <span class="dashicons dashicons-saved"></span>
+            <?php _e('ذخیره تنظیمات دستیار هوشمند', 'forooshyar'); ?>
+        </button>
+        <span id="aiagent-save-spinner" class="spinner" style="float: none; margin-top: 0;"></span>
+        
         <button type="button" class="button" id="aiagent-test-connection">
             <span class="dashicons dashicons-admin-plugins"></span>
             <?php _e('تست اتصال LLM', 'forooshyar'); ?>
@@ -251,6 +257,11 @@ $tierName = isset($subscriptionStatus['tier_name']) ? $subscriptionStatus['tier_
         <button type="button" class="button" id="aiagent-run-analysis">
             <span class="dashicons dashicons-chart-bar"></span>
             <?php _e('اجرای تحلیل', 'forooshyar'); ?>
+        </button>
+        
+        <button type="button" class="button" id="aiagent-reset-settings">
+            <span class="dashicons dashicons-image-rotate"></span>
+            <?php _e('بازگردانی به پیش‌فرض', 'forooshyar'); ?>
         </button>
     </div>
 
@@ -355,11 +366,22 @@ $tierName = isset($subscriptionStatus['tier_name']) ? $subscriptionStatus['tier_
     border-radius: 4px;
     display: flex;
     gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
 }
 
 .aiagent-actions .button .dashicons {
     margin-left: 5px;
     vertical-align: middle;
+}
+
+.aiagent-actions .button-primary {
+    display: flex;
+    align-items: center;
+}
+
+.aiagent-actions .spinner {
+    margin: 0 10px;
 }
 
 .aiagent-notice {
@@ -452,6 +474,94 @@ jQuery(document).ready(function($) {
             input.attr('type', 'password');
             icon.removeClass('dashicons-hidden').addClass('dashicons-visibility');
         }
+    });
+
+    // Save AI Agent settings
+    $('#aiagent-save-settings').on('click', function() {
+        var $btn = $(this);
+        var $spinner = $('#aiagent-save-spinner');
+        var originalText = $btn.html();
+        
+        $btn.prop('disabled', true);
+        $spinner.addClass('is-active');
+
+        // Collect all aiagent_ prefixed fields
+        var settings = {};
+        $('.aiagent-settings-wrapper').find('input, select, textarea').each(function() {
+            var $el = $(this);
+            var name = $el.attr('name');
+            if (!name || !name.startsWith('aiagent_') || $el.prop('disabled')) return;
+            
+            // Remove aiagent_ prefix for the key
+            var key = name.replace('aiagent_', '').replace('[]', '');
+            
+            if ($el.attr('type') === 'checkbox') {
+                settings[key] = $el.is(':checked') ? '1' : '0';
+            } else if ($el.is('select[multiple]')) {
+                settings[key] = $el.val() || [];
+            } else {
+                settings[key] = $el.val();
+            }
+        });
+
+        $.ajax({
+            url: ajaxurl,
+            type: 'POST',
+            data: {
+                action: 'aiagent_save_settings',
+                nonce: '<?php echo wp_create_nonce('aiagent_nonce'); ?>',
+                settings: settings
+            },
+            success: function(response) {
+                var $result = $('#aiagent-connection-result');
+                if (response.success) {
+                    $result.removeClass('error').addClass('success').html('✓ ' + (response.data.message || '<?php _e('تنظیمات با موفقیت ذخیره شد', 'forooshyar'); ?>')).show();
+                } else {
+                    $result.removeClass('success').addClass('error').html('✗ ' + (response.data.message || '<?php _e('خطا در ذخیره تنظیمات', 'forooshyar'); ?>')).show();
+                }
+            },
+            error: function() {
+                $('#aiagent-connection-result').removeClass('success').addClass('error').html('<?php _e('خطا در ارتباط با سرور', 'forooshyar'); ?>').show();
+            },
+            complete: function() {
+                $btn.prop('disabled', false).html(originalText);
+                $spinner.removeClass('is-active');
+            }
+        });
+    });
+
+    // Reset AI Agent settings
+    $('#aiagent-reset-settings').on('click', function() {
+        if (!confirm('<?php _e('آیا مطمئن هستید که می‌خواهید تنظیمات دستیار هوشمند را به حالت پیش‌فرض بازگردانید؟', 'forooshyar'); ?>')) {
+            return;
+        }
+
+        var $btn = $(this);
+        var originalText = $btn.html();
+        $btn.prop('disabled', true).html('<span class="spinner is-active" style="float:none;margin:0;"></span>');
+
+        $.ajax({
+            url: ajaxurl,
+            type: 'POST',
+            data: {
+                action: 'aiagent_reset_settings',
+                nonce: '<?php echo wp_create_nonce('aiagent_nonce'); ?>'
+            },
+            success: function(response) {
+                if (response.success) {
+                    $('#aiagent-connection-result').removeClass('error').addClass('success').html('✓ <?php _e('تنظیمات به حالت پیش‌فرض بازگردانده شد', 'forooshyar'); ?>').show();
+                    setTimeout(function() { location.reload(); }, 1000);
+                } else {
+                    $('#aiagent-connection-result').removeClass('success').addClass('error').html('✗ ' + (response.data.message || '<?php _e('خطا', 'forooshyar'); ?>')).show();
+                }
+            },
+            error: function() {
+                $('#aiagent-connection-result').removeClass('success').addClass('error').html('<?php _e('خطا در ارتباط با سرور', 'forooshyar'); ?>').show();
+            },
+            complete: function() {
+                $btn.prop('disabled', false).html(originalText);
+            }
+        });
     });
 
     // Test LLM connection

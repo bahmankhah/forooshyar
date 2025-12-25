@@ -1036,3 +1036,20 @@ msgstr "تحلیل در حال اجرا..."
 
 msgid "Server communication error"
 msgstr "خطا در ارتباط با سرور"
+
+
+# Additional AI Agent translations
+msgid "Save AI Agent Settings"
+msgstr "ذخیره تنظیمات دستیار هوشمند"
+
+msgid "Settings saved successfully"
+msgstr "تنظیمات با موفقیت ذخیره شد"
+
+msgid "Error saving settings"
+msgstr "خطا در ذخیره تنظیمات"
+
+msgid "Settings reset to defaults"
+msgstr "تنظیمات به حالت پیش‌فرض بازگردانده شد"
+
+msgid "Are you sure you want to reset AI Agent settings to defaults?"
+msgstr "آیا مطمئن هستید که می‌خواهید تنظیمات دستیار هوشمند را به حالت پیش‌فرض بازگردانید؟"

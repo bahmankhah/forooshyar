@@ -94,6 +94,7 @@ if (!defined('ABSPATH')) {
             ?>
         </div>
 
+        <?php if ($current_tab !== 'aiagent'): ?>
         <div class="forooshyar-form-actions">
             <button type="submit" class="button button-primary button-large" id="forooshyar-save-btn">
                 <?php _e('ذخیره تنظیمات', 'forooshyar'); ?>
@@ -110,6 +111,7 @@ if (!defined('ABSPATH')) {
                 <?php _e('وارد کردن تنظیمات', 'forooshyar'); ?>
             </button>
         </div>
+        <?php endif; ?>
     </form>
 
     <div id="forooshyar-messages" class="forooshyar-messages"></div>

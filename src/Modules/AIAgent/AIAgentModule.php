@@ -59,6 +59,10 @@ class AIAgentModule
 
         // Always register admin pages (even if module disabled, for settings access)
         $this->registerAdminPages();
+        
+        // Register settings controller AJAX handlers
+        $settingsController = Container::resolve(SettingsController::class);
+        $settingsController->register();
 
         if (!$this->shouldActivate()) {
             $this->booted = true;
