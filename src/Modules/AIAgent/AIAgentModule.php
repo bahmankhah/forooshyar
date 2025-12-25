@@ -67,6 +67,9 @@ class AIAgentModule
         // Always register AJAX handlers for testing (test connection, run analysis)
         $this->registerAjaxHandlers();
 
+        // Ensure database tables exist
+        $this->ensureTablesExist();
+
         if (!$this->shouldActivate()) {
             $this->booted = true;
             return;
@@ -79,6 +82,19 @@ class AIAgentModule
         $this->booted = true;
 
         do_action('aiagent_module_activated');
+    }
+
+    /**
+     * Ensure database tables exist
+     *
+     * @return void
+     */
+    private function ensureTablesExist()
+    {
+        $db = Container::resolve(DatabaseService::class);
+        if (!$db->checkTablesExist()) {
+            $this->migrate();
+        }
     }
 
     /**
@@ -459,19 +475,42 @@ class AIAgentModule
         }
 
         $type = isset($_POST['type']) ? sanitize_text_field($_POST['type']) : 'all';
+        
+        // Check if database tables exist
+        $db = Container::resolve(DatabaseService::class);
+        if (!$db->checkTablesExist()) {
+            $this->migrate();
+        }
+        
         $service = Container::resolve(AIAgentService::class);
 
         try {
             $result = $service->runAnalysis($type);
             
+            // Build detailed message
+            $productsAnalyzed = isset($result['products']['analyzed']) ? $result['products']['analyzed'] : 0;
+            $productsTotal = isset($result['products']['total']) ? $result['products']['total'] : 0;
+            $customersAnalyzed = isset($result['customers']['analyzed']) ? $result['customers']['analyzed'] : 0;
+            $customersTotal = isset($result['customers']['total']) ? $result['customers']['total'] : 0;
+            
             if ($result['success']) {
-                $message = sprintf(
-                    __('تحلیل با موفقیت انجام شد. محصولات: %d، مشتریان: %d، اقدامات ایجاد شده: %d', 'forooshyar'),
-                    isset($result['products']['analyzed']) ? $result['products']['analyzed'] : 0,
-                    isset($result['customers']['analyzed']) ? $result['customers']['analyzed'] : 0,
-                    $result['actions_created']
-                );
+                if ($productsTotal === 0 && $customersTotal === 0) {
+                    $message = __('تحلیل انجام شد اما محصول یا مشتری برای تحلیل یافت نشد.', 'forooshyar');
+                } else {
+                    $message = sprintf(
+                        __('تحلیل با موفقیت انجام شد. محصولات: %d از %d، مشتریان: %d از %d، اقدامات ایجاد شده: %d', 'forooshyar'),
+                        $productsAnalyzed,
+                        $productsTotal,
+                        $customersAnalyzed,
+                        $customersTotal,
+                        $result['actions_created']
+                    );
+                }
                 $result['message'] = $message;
+            } else {
+                // Include errors in message
+                $errorMessages = !empty($result['errors']) ? implode(', ', $result['errors']) : __('خطای ناشناخته', 'forooshyar');
+                $result['message'] = __('خطا در تحلیل: ', 'forooshyar') . $errorMessages;
             }
             
             wp_send_json_success($result);

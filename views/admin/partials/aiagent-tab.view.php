@@ -665,8 +665,13 @@ jQuery(document).ready(function($) {
                 var $result = $('#aiagent-connection-result');
                 if (response.success) {
                     var message = response.data.message || '<?php _e('تحلیل با موفقیت انجام شد', 'forooshyar'); ?>';
+                    // Show warnings if any
+                    if (response.data.warnings && response.data.warnings.length > 0) {
+                        message += '<br><small style="color:#856404;"><?php _e('هشدارها:', 'forooshyar'); ?> ' + response.data.warnings.join(', ') + '</small>';
+                    }
+                    // Show errors if any (but still success)
                     if (response.data.errors && response.data.errors.length > 0) {
-                        message += '<br><small><?php _e('هشدارها:', 'forooshyar'); ?> ' + response.data.errors.join(', ') + '</small>';
+                        message += '<br><small style="color:#721c24;"><?php _e('خطاها:', 'forooshyar'); ?> ' + response.data.errors.join(', ') + '</small>';
                     }
                     $result.removeClass('error').addClass('success').html('✓ ' + message).show();
                 } else {
