@@ -61,11 +61,18 @@ class TitleBuilder
         
         // Variation name and suffix
         if ($variation) {
-            $variables['variation_name'] = $this->buildVariationName($product, $variation);
-            $variables['variation_suffix'] = $variables['variation_name'] ? ' - ' . $variables['variation_name'] : '';
+            // Detailed format: "رنگ: قرمز - سایز: L"
+            $variationNameDetailed = $this->buildVariationName($product, $variation, true);
+            // Simple format: "قرمز، L"
+            $variationNameSimple = $this->buildVariationName($product, $variation, false);
+            
+            $variables['variation_name'] = $variationNameSimple;
+            $variables['variation_suffix'] = $variationNameSimple ? ' - ' . $variationNameSimple : '';
+            $variables['variation_suffix_detailed'] = $variationNameDetailed ? ' - ' . $variationNameDetailed : '';
         } else {
             $variables['variation_name'] = '';
             $variables['variation_suffix'] = '';
+            $variables['variation_suffix_detailed'] = '';
         }
         
         // Category
@@ -92,8 +99,9 @@ class TitleBuilder
 
     /**
      * Build variation name from attributes
+     * @param bool $detailed If true, includes attribute labels (e.g., "رنگ: قرمز"), otherwise just values (e.g., "قرمز")
      */
-    private function buildVariationName(WC_Product $parentProduct, WC_Product $variation): string
+    private function buildVariationName(WC_Product $parentProduct, WC_Product $variation, bool $detailed = true): string
     {
         $attributes = $variation->get_attributes();
         $specParts = [];
@@ -106,21 +114,24 @@ class TitleBuilder
 
             $taxonomyKey = $attrKey;
             
-            // Get the attribute label
-            $label = wc_attribute_label($taxonomyKey);
-            
-            if (empty($label)) {
-                // Create label from key
-                $cleanKey = $attrKey;
+            // Get the attribute label (only needed for detailed format)
+            $label = '';
+            if ($detailed) {
+                $label = wc_attribute_label($taxonomyKey);
                 
-                if (strpos($cleanKey, 'pa_') === 0) {
-                    $cleanKey = substr($cleanKey, 3);
+                if (empty($label)) {
+                    // Create label from key
+                    $cleanKey = $attrKey;
+                    
+                    if (strpos($cleanKey, 'pa_') === 0) {
+                        $cleanKey = substr($cleanKey, 3);
+                    }
+                    
+                    $cleanKey = $this->cleanAndDecode($cleanKey);
+                    $label = ucwords(str_replace(['-', '_'], ' ', $cleanKey));
+                } else {
+                    $label = $this->cleanAndDecode($label);
                 }
-                
-                $cleanKey = $this->cleanAndDecode($cleanKey);
-                $label = ucwords(str_replace(['-', '_'], ' ', $cleanKey));
-            } else {
-                $label = $this->cleanAndDecode($label);
             }
 
             // Get the attribute value/term name
@@ -141,17 +152,25 @@ class TitleBuilder
             $finalValue = $this->cleanAndDecode($finalValue);
             
             // Clean up labels and values
-            $label = trim(str_replace(['-', '_'], ' ', $label));
+            if ($detailed) {
+                $label = trim(str_replace(['-', '_'], ' ', $label));
+            }
             $finalValue = trim(preg_replace('/^pa_/i', '', $finalValue));
             
-            // Only add if both are meaningful
-            if (!empty($label) && !empty($finalValue) && 
+            // Only add if value is meaningful
+            if (!empty($finalValue) && 
                 !in_array(strtolower($finalValue), ['variable', 'any', 'exclude-from-search', 'external'])) {
-                $specParts[] = "{$label}: {$finalValue}";
+                if ($detailed && !empty($label)) {
+                    $specParts[] = "{$label}: {$finalValue}";
+                } else {
+                    $specParts[] = $finalValue;
+                }
             }
         }
 
-        return implode(' - ', $specParts);
+        // Use different separators for detailed vs simple
+        $separator = $detailed ? ' - ' : '، ';
+        return implode($separator, $specParts);
     }
 
     /**

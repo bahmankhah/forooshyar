@@ -868,9 +868,15 @@ class AdminController extends Controller
             $logService = new \Forooshyar\Services\ApiLogService($this->configService);
             
             $daysToKeep = intval($_POST['days_to_keep'] ?? 30);
-            $daysToKeep = max(1, min(365, $daysToKeep)); // Between 1 and 365 days
             
-            $result = $logService->cleanupLogs($daysToKeep);
+            // If 0, delete all logs; otherwise keep between 1 and 365 days
+            if ($daysToKeep === 0) {
+                // Delete all logs by using a very large number of days ago
+                $result = $logService->cleanupLogs(-36500); // ~100 years ago = delete everything
+            } else {
+                $daysToKeep = max(1, min(365, $daysToKeep)); // Between 1 and 365 days
+                $result = $logService->cleanupLogs($daysToKeep);
+            }
             
             wp_send_json_success([
                 'message' => sprintf(

@@ -7,6 +7,7 @@ use WPLite\Facades\Route;
 Route::rest(function ($router) {
     // Main products endpoint - GET /products
     $router->get('/products', [ProductController::class, 'index'])->middleware(ApiLoggingMiddleware::class)->make();
+
     
     // Single product endpoint - GET /products/{id}
     $router->get('/products/{id}', [ProductController::class, 'show'])->middleware(ApiLoggingMiddleware::class)->make();

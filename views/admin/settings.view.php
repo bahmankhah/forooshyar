@@ -36,10 +36,10 @@ if (!defined('ABSPATH')) {
            class="nav-tab <?php echo ($current_tab === 'fields') ? 'nav-tab-active' : ''; ?>">
             <?php _e('فیلدهای محصول', 'forooshyar'); ?>
         </a>
-        <a href="?page=forooshyar&tab=images" 
+        <!-- <a href="?page=forooshyar&tab=images" 
            class="nav-tab <?php echo ($current_tab === 'images') ? 'nav-tab-active' : ''; ?>">
             <?php _e('تصاویر', 'forooshyar'); ?>
-        </a>
+        </a> -->
         <a href="?page=forooshyar&tab=cache" 
            class="nav-tab <?php echo ($current_tab === 'cache') ? 'nav-tab-active' : ''; ?>">
             <?php _e('کش', 'forooshyar'); ?>
@@ -48,10 +48,10 @@ if (!defined('ABSPATH')) {
            class="nav-tab <?php echo ($current_tab === 'api') ? 'nav-tab-active' : ''; ?>">
             <?php _e('محدودیت‌های API', 'forooshyar'); ?>
         </a>
-        <a href="?page=forooshyar&tab=advanced" 
+        <!-- <a href="?page=forooshyar&tab=advanced" 
            class="nav-tab <?php echo ($current_tab === 'advanced') ? 'nav-tab-active' : ''; ?>">
             <?php _e('پیشرفته', 'forooshyar'); ?>
-        </a>
+        </a> -->
     </nav>
 
     <form id="forooshyar-settings-form" method="post">

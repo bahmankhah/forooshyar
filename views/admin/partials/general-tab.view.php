@@ -46,10 +46,10 @@ $general_config = $config['general'] ?? [];
                         'product_name' => __('نام محصول', 'forooshyar'),
                         'variation_name' => __('نام تنوع', 'forooshyar'),
                         'variation_suffix' => __('پسوند تنوع', 'forooshyar'),
+                        'variation_suffix_detailed' => __('پسوند تنوع با جزئیات', 'forooshyar'),
                         'category' => __('دسته‌بندی', 'forooshyar'),
                         'sku' => __('کد محصول', 'forooshyar'),
-                        'brand' => __('برند', 'forooshyar'),
-                        'custom_suffix' => __('پسوند سفارشی', 'forooshyar')
+                        'brand' => __('برند', 'forooshyar')
                     ];
                     
                     $vars_to_show = !empty($variables) ? $variables : $default_variables;
@@ -69,20 +69,6 @@ $general_config = $config['general'] ?? [];
                     </div>
                 </div>
             </div>
-        </td>
-    </tr>
-    
-    <tr>
-        <th scope="row">
-            <label for="custom_suffix"><?php _e('پسوند سفارشی', 'forooshyar'); ?></label>
-        </th>
-        <td>
-            <input type="text" id="custom_suffix" name="general[custom_suffix]" 
-                   value="<?php echo esc_attr($general_config['custom_suffix'] ?? ''); ?>" 
-                   class="regular-text">
-            <p class="forooshyar-field-description">
-                <?php _e('متن سفارشی که به انتهای عناوین اضافه می‌شود', 'forooshyar'); ?>
-            </p>
         </td>
     </tr>
     
@@ -236,17 +222,15 @@ function insertVariable(variable) {
 function updateTemplatePreview() {
     var template = document.getElementById('title_template').value;
     var preview = document.getElementById('template-preview');
-    var customSuffixInput = document.getElementById('custom_suffix');
-    var customSuffix = customSuffixInput ? customSuffixInput.value : '';
     
     var sampleData = {
         'product_name': 'نمونه محصول',
-        'variation_name': 'قرمز',
-        'variation_suffix': ' - قرمز، سایز L',
+        'variation_name': 'قرمز، L',
+        'variation_suffix': ' - قرمز، L',
+        'variation_suffix_detailed': ' - رنگ: قرمز - سایز: L',
         'category': 'لباس',
         'sku': 'PRD-001',
-        'brand': 'برند نمونه',
-        'custom_suffix': customSuffix || ''
+        'brand': 'برند نمونه'
     };
     
     var previewText = template;
@@ -271,11 +255,6 @@ document.addEventListener('DOMContentLoaded', function() {
     var titleInput = document.getElementById('title_template');
     if (titleInput) {
         titleInput.addEventListener('input', updateTemplatePreview);
-    }
-    
-    var customSuffixInput = document.getElementById('custom_suffix');
-    if (customSuffixInput) {
-        customSuffixInput.addEventListener('input', updateTemplatePreview);
     }
 });
 </script>

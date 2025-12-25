@@ -62,7 +62,7 @@ return [
         'category' => 'دسته‌بندی',
         'sku' => 'کد محصول',
         'brand' => 'برند',
-        'custom_suffix' => 'پسوند سفارشی',
-        'variation_suffix' => 'پسوند تنوع'
+        'variation_suffix' => 'پسوند تنوع',
+        'variation_suffix_detailed' => 'پسوند تنوع با جزئیات'
     ]
 ];

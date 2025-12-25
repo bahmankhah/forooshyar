@@ -501,6 +501,41 @@ jQuery(document).ready(function($) {
         loadLogs();
     });
     
+    // Handle clear logs
+    $('#clear-logs-btn').on('click', function() {
+        if (!confirm('<?php _e("آیا مطمئن هستید که می‌خواهید تمام لاگ‌ها را پاک کنید؟", "forooshyar"); ?>')) {
+            return;
+        }
+        
+        var $btn = $(this);
+        $btn.prop('disabled', true).text('<?php _e("در حال پاک کردن...", "forooshyar"); ?>');
+        
+        $.ajax({
+            url: ajaxurl,
+            type: 'POST',
+            data: {
+                action: 'forooshyar_cleanup_logs',
+                nonce: '<?php echo wp_create_nonce("forooshyar_cleanup"); ?>',
+                days_to_keep: 0 // Delete all logs
+            },
+            success: function(response) {
+                if (response.success) {
+                    alert(response.data.message || '<?php _e("لاگ‌ها با موفقیت پاک شدند", "forooshyar"); ?>');
+                    loadLogs();
+                    loadStats();
+                } else {
+                    alert(response.data.message || '<?php _e("خطا در پاک کردن لاگ‌ها", "forooshyar"); ?>');
+                }
+            },
+            error: function() {
+                alert('<?php _e("خطا در ارتباط با سرور", "forooshyar"); ?>');
+            },
+            complete: function() {
+                $btn.prop('disabled', false).text('<?php _e("پاک کردن لاگ‌ها", "forooshyar"); ?>');
+            }
+        });
+    });
+    
     // Handle stats refresh
     $('#refresh-stats-btn').on('click', function() {
         loadStats();
