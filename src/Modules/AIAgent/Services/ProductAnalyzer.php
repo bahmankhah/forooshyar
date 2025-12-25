@@ -53,6 +53,8 @@ class ProductAnalyzer implements AnalyzerInterface
         $limit = isset($options['limit']) ? $options['limit'] : 50;
         $products = $this->getEntities($limit);
 
+        appLogger("[AIAgent] Starting product analysis - Found " . count($products) . " products to analyze");
+
         $results = [
             'type' => 'product_analysis',
             'total' => count($products),
@@ -69,18 +71,34 @@ class ProductAnalyzer implements AnalyzerInterface
                     if (!empty($analysis['suggestions'])) {
                         $results['suggestions'] = array_merge($results['suggestions'], $analysis['suggestions']);
                     }
+                    appLogger("[AIAgent] Product {$product['id']} analyzed successfully");
+                } else {
+                    // Capture failed analysis (not exception, but success=false)
+                    $errorMsg = isset($analysis['error']) ? $analysis['error'] : __('خطای ناشناخته', 'forooshyar');
+                    $results['errors'][] = [
+                        'product_id' => $product['id'],
+                        'error' => $errorMsg,
+                    ];
+                    appLogger("[AIAgent] Product {$product['id']} analysis failed: {$errorMsg}");
+                    $this->logger->warning('Product analysis returned failure', [
+                        'product_id' => $product['id'],
+                        'error' => $errorMsg,
+                    ]);
                 }
             } catch (\Exception $e) {
                 $results['errors'][] = [
                     'product_id' => $product['id'],
                     'error' => $e->getMessage(),
                 ];
+                appLogger("[AIAgent] Product {$product['id']} threw exception: " . $e->getMessage());
                 $this->logger->error('Product analysis failed', [
                     'product_id' => $product['id'],
                     'error' => $e->getMessage(),
                 ]);
             }
         }
+
+        appLogger("[AIAgent] Product analysis complete - Analyzed: {$results['analyzed']}/{$results['total']}, Errors: " . count($results['errors']));
 
         return $results;
     }
@@ -93,16 +111,23 @@ class ProductAnalyzer implements AnalyzerInterface
      */
     public function analyzeEntity($entityId)
     {
+        appLogger("[AIAgent] Starting analysis for product ID: {$entityId}");
+        
         $product = wc_get_product($entityId);
         if (!$product) {
-            return ['success' => false, 'error' => 'Product not found'];
+            appLogger("[AIAgent] Product not found: {$entityId}");
+            return ['success' => false, 'error' => __('محصول یافت نشد', 'forooshyar')];
         }
 
+        appLogger("[AIAgent] Product found: {$product->get_name()}");
+        
         $productData = $this->getProductData($product);
         $messages = $this->buildPrompt($productData);
 
         $this->logger->logPrompt($messages, $this->llm->getProviderName());
 
+        appLogger("[AIAgent] Calling LLM for product: {$entityId}");
+        
         $startTime = microtime(true);
         $response = $this->llm->call($messages);
         $duration = (microtime(true) - $startTime) * 1000;
@@ -110,10 +135,16 @@ class ProductAnalyzer implements AnalyzerInterface
         $this->logger->logResponse($response, $this->llm->getProviderName());
 
         if (!$response['success']) {
+            appLogger("[AIAgent] LLM call failed for product {$entityId}: " . ($response['error'] ?? 'Unknown error'));
             return ['success' => false, 'error' => $response['error']];
         }
 
+        appLogger("[AIAgent] LLM call successful for product {$entityId}, parsing response...");
+        
         $parsed = $this->parseResponse($response);
+        
+        appLogger("[AIAgent] Parsed response - Analysis: " . substr($parsed['analysis'], 0, 200));
+        appLogger("[AIAgent] Parsed response - Suggestions count: " . count($parsed['suggestions']));
 
         // Save to database
         $analysisId = $this->database->saveAnalysis([
@@ -128,6 +159,8 @@ class ProductAnalyzer implements AnalyzerInterface
             'tokens_used' => isset($response['data']['tokens']) ? $response['data']['tokens'] : 0,
             'duration_ms' => round($duration),
         ]);
+
+        appLogger("[AIAgent] Analysis saved to database with ID: " . ($analysisId ?: 'FAILED'));
 
         return [
             'success' => true,

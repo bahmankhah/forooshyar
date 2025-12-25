@@ -490,12 +490,29 @@ class AIAgentModule
             // Build detailed message
             $productsAnalyzed = isset($result['products']['analyzed']) ? $result['products']['analyzed'] : 0;
             $productsTotal = isset($result['products']['total']) ? $result['products']['total'] : 0;
+            $productsErrors = isset($result['products']['errors']) ? $result['products']['errors'] : [];
             $customersAnalyzed = isset($result['customers']['analyzed']) ? $result['customers']['analyzed'] : 0;
             $customersTotal = isset($result['customers']['total']) ? $result['customers']['total'] : 0;
+            
+            // Collect all errors from products analysis
+            if (!empty($productsErrors)) {
+                foreach ($productsErrors as $err) {
+                    $errMsg = is_array($err) ? (isset($err['error']) ? $err['error'] : json_encode($err)) : $err;
+                    $result['errors'][] = sprintf(__('محصول %s: %s', 'forooshyar'), 
+                        isset($err['product_id']) ? $err['product_id'] : '?', 
+                        $errMsg
+                    );
+                }
+            }
             
             if ($result['success']) {
                 if ($productsTotal === 0 && $customersTotal === 0) {
                     $message = __('تحلیل انجام شد اما محصول یا مشتری برای تحلیل یافت نشد.', 'forooshyar');
+                } elseif ($productsAnalyzed === 0 && $productsTotal > 0) {
+                    $message = sprintf(
+                        __('تحلیل انجام شد اما هیچ محصولی با موفقیت تحلیل نشد (%d محصول یافت شد). خطاها را بررسی کنید.', 'forooshyar'),
+                        $productsTotal
+                    );
                 } else {
                     $message = sprintf(
                         __('تحلیل با موفقیت انجام شد. محصولات: %d از %d، مشتریان: %d از %d، اقدامات ایجاد شده: %d', 'forooshyar'),

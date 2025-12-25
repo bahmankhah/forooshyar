@@ -26,7 +26,7 @@ class OllamaProvider implements LLMProviderInterface
     public function __construct(array $config)
     {
         $this->config = array_merge([
-            'endpoint' => 'http://localhost:11434/api/generate',
+            'endpoints' => 'http://localhost:11434/api/generate',
             'model' => 'llama2',
             'temperature' => 0.7,
             'max_tokens' => 2000,
@@ -34,8 +34,14 @@ class OllamaProvider implements LLMProviderInterface
             'use_chat_api' => false,
         ], $config);
 
-        // Extract base URL
-        $this->baseUrl = preg_replace('#/api/(generate|chat)$#', '', $this->config['endpoint']);
+        // Extract base URL - handle both with and without trailing /api/generate or /api/chat
+        $endpoint = rtrim($this->config['endpoint'], '/');
+        if (preg_match('#/api/(generate|chat)$#', $endpoint)) {
+            $this->baseUrl = preg_replace('#/api/(generate|chat)$#', '', $endpoint);
+        } else {
+            // If endpoint doesn't end with /api/generate or /api/chat, use it as base
+            $this->baseUrl = $endpoint;
+        }
     }
 
     /**
@@ -93,17 +99,35 @@ class OllamaProvider implements LLMProviderInterface
             $body['system'] = $options['system'];
         }
 
+        $apiUrl = $this->baseUrl . '/api/generate';
         $startTime = microtime(true);
 
-        $response = wp_remote_post($this->baseUrl . '/api/generate', [
+        // Log the prompt being sent
+        appLogger("[AIAgent] Ollama Request to: {$apiUrl}");
+        appLogger("[AIAgent] Model: {$body['model']}");
+        appLogger("[AIAgent] Prompt: " . substr($prompt, 0, 500) . (strlen($prompt) > 500 ? '...' : ''));
+
+        $response = wp_remote_post($apiUrl, [
             'timeout' => $this->config['timeout'],
             'headers' => [
                 'Content-Type' => 'application/json',
             ],
             'body' => wp_json_encode($body),
+            'sslverify' => false, // Allow self-signed certificates
         ]);
 
         $duration = (microtime(true) - $startTime) * 1000;
+
+        // Log the response
+        if (is_wp_error($response)) {
+            appLogger("[AIAgent] Ollama Error: " . $response->get_error_message());
+        } else {
+            $statusCode = wp_remote_retrieve_response_code($response);
+            $responseBody = wp_remote_retrieve_body($response);
+            appLogger("[AIAgent] Ollama Response Status: {$statusCode}");
+            appLogger("[AIAgent] Ollama Response Body: " . substr($responseBody, 0, 1000) . (strlen($responseBody) > 1000 ? '...' : ''));
+            appLogger("[AIAgent] Ollama Duration: {$duration}ms");
+        }
 
         return $this->parseResponse($response, $duration);
     }
@@ -155,19 +179,38 @@ class OllamaProvider implements LLMProviderInterface
             return [
                 'success' => false,
                 'data' => null,
-                'error' => $response->get_error_message(),
+                'error' => __('خطای اتصال: ', 'forooshyar') . $response->get_error_message(),
             ];
         }
 
         $statusCode = wp_remote_retrieve_response_code($response);
         $responseBody = wp_remote_retrieve_body($response);
-        $data = json_decode($responseBody, true);
-
-        if ($statusCode !== 200) {
+        
+        // Log raw response for debugging
+        if (empty($responseBody)) {
             return [
                 'success' => false,
                 'data' => null,
-                'error' => isset($data['error']) ? $data['error'] : "HTTP {$statusCode}",
+                'error' => sprintf(__('پاسخ خالی از سرور (کد وضعیت: %d)', 'forooshyar'), $statusCode),
+            ];
+        }
+        
+        $data = json_decode($responseBody, true);
+
+        if ($statusCode !== 200) {
+            $errorMsg = isset($data['error']) ? $data['error'] : $responseBody;
+            return [
+                'success' => false,
+                'data' => null,
+                'error' => sprintf(__('خطای HTTP %d: %s', 'forooshyar'), $statusCode, $errorMsg),
+            ];
+        }
+        
+        if ($data === null) {
+            return [
+                'success' => false,
+                'data' => null,
+                'error' => __('پاسخ JSON نامعتبر از سرور', 'forooshyar'),
             ];
         }
 
