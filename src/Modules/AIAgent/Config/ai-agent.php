@@ -252,7 +252,7 @@ return [
         ],
         'actions_enabled_types' => [
             'type' => 'multiselect',
-            'default' => ['send_email', 'create_discount'],
+            'default' => ['send_email', 'create_discount', 'update_product', 'create_campaign', 'schedule_followup', 'inventory_alert'],
             'options' => [
                 'send_email' => 'ارسال ایمیل',
                 'send_sms' => 'ارسال پیامک',

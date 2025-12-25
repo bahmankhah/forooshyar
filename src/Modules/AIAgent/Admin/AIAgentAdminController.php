@@ -7,6 +7,7 @@
 
 namespace Forooshyar\Modules\AIAgent\Admin;
 
+use WPLite\View;
 use Forooshyar\Modules\AIAgent\Services\AIAgentService;
 use Forooshyar\Modules\AIAgent\Services\SubscriptionManager;
 use Forooshyar\Modules\AIAgent\Services\SettingsManager;
@@ -66,8 +67,13 @@ class AIAgentAdminController
     {
         $stats = $this->service->getStatistics(30);
         $status = $this->service->getStatus();
+        $dashboardData = $this->service->getDashboardData();
 
-        include __DIR__ . '/Views/dashboard.php';
+        View::render('admin.aiagent-dashboard', [
+            'stats' => $stats,
+            'status' => $status,
+            'dashboardData' => $dashboardData,
+        ]);
     }
 
     /**
@@ -83,25 +89,5 @@ class AIAgentAdminController
         // Redirect to main settings page with aiagent tab
         wp_redirect(admin_url('admin.php?page=forooshyar&tab=aiagent'));
         exit;
-    }
-
-    /**
-     * Render analysis results page
-     *
-     * @return void
-     */
-    public function resultsPage()
-    {
-        include __DIR__ . '/Views/analysis-results.php';
-    }
-
-    /**
-     * Render actions list page
-     *
-     * @return void
-     */
-    public function actionsPage()
-    {
-        include __DIR__ . '/Views/actions-list.php';
     }
 }

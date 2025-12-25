@@ -19,6 +19,7 @@ use Forooshyar\Modules\AIAgent\Services\ProductAnalyzer;
 use Forooshyar\Modules\AIAgent\Services\CustomerAnalyzer;
 use Forooshyar\Modules\AIAgent\Services\Logger;
 use Forooshyar\Modules\AIAgent\Services\NotificationService;
+use Forooshyar\Modules\AIAgent\Services\AnalysisJobManager;
 use Forooshyar\Modules\AIAgent\Services\LLM\LLMFactory;
 use Forooshyar\Modules\AIAgent\Admin\AIAgentAdminController;
 use Forooshyar\Modules\AIAgent\Admin\SettingsController;
@@ -265,6 +266,17 @@ class AIAgentModule
                 Container::resolve(SubscriptionManager::class)
             );
         });
+
+        // Analysis Job Manager
+        Container::bind(AnalysisJobManager::class, function () {
+            return new AnalysisJobManager(
+                Container::resolve(ProductAnalyzer::class),
+                Container::resolve(CustomerAnalyzer::class),
+                Container::resolve(SubscriptionManager::class),
+                Container::resolve(SettingsManager::class),
+                Container::resolve(DatabaseService::class)
+            );
+        });
     }
 
     /**
@@ -385,6 +397,9 @@ class AIAgentModule
         // Cron schedules
         add_filter('cron_schedules', [$this, 'addCronSchedules']);
         add_action('aiagent_scheduled_analysis', [$this, 'runScheduledAnalysis']);
+        
+        // Job processing cron hook
+        add_action(AnalysisJobManager::CRON_HOOK, [$this, 'processAnalysisJob']);
 
         // Activation/Deactivation
         register_activation_hook(
@@ -400,11 +415,25 @@ class AIAgentModule
      */
     public function registerAjaxHandlers()
     {
-        add_action('wp_ajax_aiagent_run_analysis', [$this, 'ajaxRunAnalysis']);
+        add_action('wp_ajax_aiagent_start_analysis', [$this, 'ajaxStartAnalysis']);
+        add_action('wp_ajax_aiagent_cancel_analysis', [$this, 'ajaxCancelAnalysis']);
+        add_action('wp_ajax_aiagent_get_analysis_progress', [$this, 'ajaxGetAnalysisProgress']);
+        add_action('wp_ajax_aiagent_run_analysis', [$this, 'ajaxRunAnalysis']); // Keep for backward compatibility
         add_action('wp_ajax_aiagent_execute_action', [$this, 'ajaxExecuteAction']);
         add_action('wp_ajax_aiagent_approve_action', [$this, 'ajaxApproveAction']);
         add_action('wp_ajax_aiagent_get_stats', [$this, 'ajaxGetStats']);
         add_action('wp_ajax_aiagent_test_connection', [$this, 'ajaxTestConnection']);
+    }
+
+    /**
+     * Process analysis job (called by cron)
+     *
+     * @return void
+     */
+    public function processAnalysisJob()
+    {
+        $jobManager = Container::resolve(AnalysisJobManager::class);
+        $jobManager->processNextBatch();
     }
 
     /**
@@ -628,6 +657,96 @@ class AIAgentModule
             $result = $service->testConnection();
             wp_send_json_success($result);
         } catch (\Exception $e) {
+            wp_send_json_error(['message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * AJAX: Start async analysis job
+     *
+     * @return void
+     */
+    public function ajaxStartAnalysis()
+    {
+        check_ajax_referer('aiagent_nonce', 'nonce');
+
+        if (!current_user_can('manage_woocommerce')) {
+            wp_send_json_error(['message' => __('دسترسی غیرمجاز', 'forooshyar')], 403);
+        }
+
+        $type = isset($_POST['type']) ? sanitize_text_field($_POST['type']) : 'all';
+
+        // Check if database tables exist
+        $db = Container::resolve(DatabaseService::class);
+        if (!$db->checkTablesExist()) {
+            $this->migrate();
+        }
+
+        $jobManager = Container::resolve(AnalysisJobManager::class);
+
+        try {
+            $result = $jobManager->startJob($type);
+            
+            if ($result['success']) {
+                wp_send_json_success($result);
+            } else {
+                wp_send_json_error($result);
+            }
+        } catch (\Exception $e) {
+            appLogger("[AIAgent] Start analysis error: " . $e->getMessage());
+            wp_send_json_error(['message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * AJAX: Cancel running analysis job
+     *
+     * @return void
+     */
+    public function ajaxCancelAnalysis()
+    {
+        check_ajax_referer('aiagent_nonce', 'nonce');
+
+        if (!current_user_can('manage_woocommerce')) {
+            wp_send_json_error(['message' => __('دسترسی غیرمجاز', 'forooshyar')], 403);
+        }
+
+        $jobManager = Container::resolve(AnalysisJobManager::class);
+
+        try {
+            $result = $jobManager->cancelJob();
+            
+            if ($result['success']) {
+                wp_send_json_success($result);
+            } else {
+                wp_send_json_error($result);
+            }
+        } catch (\Exception $e) {
+            appLogger("[AIAgent] Cancel analysis error: " . $e->getMessage());
+            wp_send_json_error(['message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * AJAX: Get analysis job progress
+     *
+     * @return void
+     */
+    public function ajaxGetAnalysisProgress()
+    {
+        check_ajax_referer('aiagent_nonce', 'nonce');
+
+        if (!current_user_can('manage_woocommerce')) {
+            wp_send_json_error(['message' => __('دسترسی غیرمجاز', 'forooshyar')], 403);
+        }
+
+        $jobManager = Container::resolve(AnalysisJobManager::class);
+
+        try {
+            $progress = $jobManager->getJobProgress();
+            wp_send_json_success($progress);
+        } catch (\Exception $e) {
+            appLogger("[AIAgent] Get progress error: " . $e->getMessage());
             wp_send_json_error(['message' => $e->getMessage()], 500);
         }
     }
