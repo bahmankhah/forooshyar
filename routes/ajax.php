@@ -1,7 +1,6 @@
 <?php
 
 use Forooshyar\Controllers\AdminController;
-use Forooshyar\Middleware\ApiLoggingMiddleware;
 use WPLite\Facades\Route;
 
 Route::ajax(function ($router) {
@@ -10,7 +9,7 @@ Route::ajax(function ($router) {
     $router->post('forooshyar_reset_settings', [AdminController::class, 'resetSettings'])->make();
     
     // API testing and monitoring
-    $router->post('forooshyar_test_api', [AdminController::class, 'testApi'])->middleware(ApiLoggingMiddleware::class)->make();
+    $router->post('forooshyar_test_api', [AdminController::class, 'testApi'])->make();
     $router->get('forooshyar_get_logs', [AdminController::class, 'getLogs'])->make();
     $router->get('forooshyar_get_stats', [AdminController::class, 'getStatsAjax'])->make();
     

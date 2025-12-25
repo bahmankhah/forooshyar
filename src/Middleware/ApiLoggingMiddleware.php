@@ -6,6 +6,7 @@ use Forooshyar\Services\ApiLogService;
 use WP_REST_Request;
 use WP_REST_Response;
 use WPLite\Container;
+use WPLite\Pipeline;
 
 class ApiLoggingMiddleware
 {
@@ -20,7 +21,7 @@ class ApiLoggingMiddleware
     /**
      * Handle API request with logging and rate limiting
      */
-    public function handle(WP_REST_Request $request, callable $next): WP_REST_Response
+    public function handle(WP_REST_Request $request, Pipeline $pipeline): WP_REST_Response
     {
         $startTime = microtime(true);
         $endpoint = method_exists($request, 'get_route') ? $request->get_route() : $request->get_param('route') ?? '/unknown';
@@ -57,7 +58,7 @@ class ApiLoggingMiddleware
         }
         
         // Execute the actual request
-        $response = $next($request);
+        $response = $pipeline->next($request);
         
         // Calculate response time
         $responseTime = microtime(true) - $startTime;
