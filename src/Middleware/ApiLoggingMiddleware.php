@@ -5,15 +5,16 @@ namespace Forooshyar\Middleware;
 use Forooshyar\Services\ApiLogService;
 use WP_REST_Request;
 use WP_REST_Response;
+use WPLite\Container;
 
 class ApiLoggingMiddleware
 {
     /** @var ApiLogService */
     private $logService;
 
-    public function __construct(ApiLogService $logService)
+    public function __construct(ApiLogService $logService = null)
     {
-        $this->logService = $logService;
+        $this->logService = $logService ?? Container::resolve(ApiLogService::class);
     }
 
     /**
