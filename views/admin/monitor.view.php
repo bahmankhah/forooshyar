@@ -561,7 +561,7 @@ jQuery(document).ready(function($) {
             }
             
             var dateStr = persianDays[now.getDay()] + '، ' + toPersian(jd) + ' ' + persianMonths[jm - 1] + ' ' + toPersian(jy);
-            var timeStr = toPersian(now.getHours().toString().padStart(2, '0')) + ':' + toPersian(now.getMinutes().toString().padStart(2, '0'));
+            var timeStr = toPersian(now.getHours().toString().padStart(2, '0')) + ':' + toPersian(now.getMinutes().toString().padStart(2, '0')) + ':' + toPersian(now.getSeconds().toString().padStart(2, '0'));
             
             $('.forooshyar-current-date').text(dateStr);
             $('.forooshyar-current-time').text(timeStr);

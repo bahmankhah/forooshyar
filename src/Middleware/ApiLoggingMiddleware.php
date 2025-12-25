@@ -25,6 +25,7 @@ class ApiLoggingMiddleware
         $endpoint = method_exists($request, 'get_route') ? $request->get_route() : $request->get_param('route') ?? '/unknown';
         
         // Check rate limiting first
+        appLogger('LOGGING ' . $endpoint);
         $rateLimitCheck = $this->logService->checkRateLimit($endpoint);
         
         if (!$rateLimitCheck['allowed']) {
