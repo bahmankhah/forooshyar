@@ -1,7 +1,6 @@
 <?php
 
 use Forooshyar\Providers\AppServiceProvider;
-use Forooshyar\Providers\ShortcodeServiceProvider;
 
 
 return [

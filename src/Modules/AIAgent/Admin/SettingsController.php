@@ -1,0 +1,221 @@
+<?php
+/**
+ * Settings Controller
+ * 
+ * Handles admin settings page rendering and AJAX operations
+ * 
+ * @package Forooshyar\Modules\AIAgent\Admin
+ */
+
+namespace Forooshyar\Modules\AIAgent\Admin;
+
+use Forooshyar\Modules\AIAgent\Services\SettingsManager;
+use Forooshyar\Modules\AIAgent\Services\SubscriptionManager;
+
+class SettingsController
+{
+    /** @var SettingsManager */
+    private $settings;
+
+    /** @var SubscriptionManager */
+    private $subscription;
+
+    /**
+     * @param SettingsManager $settings
+     * @param SubscriptionManager $subscription
+     */
+    public function __construct(SettingsManager $settings, SubscriptionManager $subscription)
+    {
+        $this->settings = $settings;
+        $this->subscription = $subscription;
+    }
+
+    /**
+     * Register settings page hooks
+     *
+     * @return void
+     */
+    public function register()
+    {
+        add_action('admin_init', [$this, 'initSettings']);
+        add_action('wp_ajax_aiagent_save_settings', [$this, 'ajaxSaveSettings']);
+        add_action('wp_ajax_aiagent_reset_settings', [$this, 'ajaxResetSettings']);
+        add_action('wp_ajax_aiagent_export_settings', [$this, 'ajaxExportSettings']);
+        add_action('wp_ajax_aiagent_import_settings', [$this, 'ajaxImportSettings']);
+    }
+
+    /**
+     * Initialize WordPress settings
+     *
+     * @return void
+     */
+    public function initSettings()
+    {
+        $this->settings->registerWordPressSettings();
+    }
+
+    /**
+     * Render settings page
+     *
+     * @return void
+     */
+    public function render()
+    {
+        $settingsBySection = $this->settings->getBySection();
+        $sectionLabels = $this->settings->getSectionLabels();
+        $subscriptionStatus = $this->subscription->getSubscriptionStatus();
+        $featuresComparison = $this->subscription->getFeaturesComparison();
+
+        include __DIR__ . '/Views/settings.php';
+    }
+
+    /**
+     * AJAX: Save settings
+     *
+     * @return void
+     */
+    public function ajaxSaveSettings()
+    {
+        check_ajax_referer('aiagent_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('Unauthorized', 'forooshyar')], 403);
+        }
+
+        $data = isset($_POST['settings']) ? $_POST['settings'] : [];
+        
+        if (empty($data)) {
+            wp_send_json_error(['message' => __('No settings provided', 'forooshyar')], 400);
+        }
+
+        $result = $this->settings->bulkUpdate($data);
+
+        if ($result['success']) {
+            wp_send_json_success([
+                'message' => sprintf(
+                    __('%d settings saved successfully', 'forooshyar'),
+                    $result['updated']
+                ),
+            ]);
+        } else {
+            wp_send_json_error([
+                'message' => __('Some settings could not be saved', 'forooshyar'),
+                'errors' => $result['errors'],
+            ], 400);
+        }
+    }
+
+    /**
+     * AJAX: Reset settings
+     *
+     * @return void
+     */
+    public function ajaxResetSettings()
+    {
+        check_ajax_referer('aiagent_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('Unauthorized', 'forooshyar')], 403);
+        }
+
+        $section = isset($_POST['section']) ? sanitize_key($_POST['section']) : null;
+        
+        if ($section) {
+            // Reset only settings in specified section
+            $settingsBySection = $this->settings->getBySection();
+            if (isset($settingsBySection[$section])) {
+                $keys = array_keys($settingsBySection[$section]);
+                $this->settings->reset($keys);
+            }
+        } else {
+            // Reset all settings
+            $this->settings->reset();
+        }
+
+        wp_send_json_success([
+            'message' => __('Settings reset to defaults', 'forooshyar'),
+        ]);
+    }
+
+    /**
+     * AJAX: Export settings
+     *
+     * @return void
+     */
+    public function ajaxExportSettings()
+    {
+        check_ajax_referer('aiagent_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('Unauthorized', 'forooshyar')], 403);
+        }
+
+        $includeSecrets = isset($_POST['include_secrets']) && $_POST['include_secrets'] === 'true';
+        $settings = $this->settings->export($includeSecrets);
+
+        wp_send_json_success([
+            'settings' => $settings,
+            'exported_at' => current_time('mysql'),
+            'version' => SettingsManager::VERSION,
+        ]);
+    }
+
+    /**
+     * AJAX: Import settings
+     *
+     * @return void
+     */
+    public function ajaxImportSettings()
+    {
+        check_ajax_referer('aiagent_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('Unauthorized', 'forooshyar')], 403);
+        }
+
+        $jsonData = isset($_POST['settings_json']) ? wp_unslash($_POST['settings_json']) : '';
+        
+        if (empty($jsonData)) {
+            wp_send_json_error(['message' => __('No settings data provided', 'forooshyar')], 400);
+        }
+
+        $data = json_decode($jsonData, true);
+        
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            wp_send_json_error(['message' => __('Invalid JSON format', 'forooshyar')], 400);
+        }
+
+        $settings = isset($data['settings']) ? $data['settings'] : $data;
+        $result = $this->settings->import($settings);
+
+        if (empty($result['errors'])) {
+            wp_send_json_success([
+                'message' => sprintf(
+                    __('%d settings imported successfully', 'forooshyar'),
+                    $result['imported']
+                ),
+            ]);
+        } else {
+            wp_send_json_error([
+                'message' => __('Some settings could not be imported', 'forooshyar'),
+                'imported' => $result['imported'],
+                'errors' => $result['errors'],
+            ], 400);
+        }
+    }
+
+    /**
+     * Get settings data for JavaScript
+     *
+     * @return array
+     */
+    public function getJsData()
+    {
+        return [
+            'settings' => $this->settings->all(),
+            'schema' => $this->settings->getSchema(),
+            'sections' => $this->settings->getSectionLabels(),
+            'subscription' => $this->subscription->getSubscriptionStatus(),
+        ];
+    }
+}

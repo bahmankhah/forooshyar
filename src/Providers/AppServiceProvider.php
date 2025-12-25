@@ -11,14 +11,35 @@ use Forooshyar\Services\ErrorHandlingService;
 use Forooshyar\Services\TitleBuilder;
 use Forooshyar\Services\ApiLogService;
 use Forooshyar\Services\LogCleanupService;
+use Forooshyar\Modules\AIAgent\AIAgentModule;
 use WPLite\Container;
 use WPLite\Provider;
 
 
 class AppServiceProvider extends Provider
 {
+    /** @var AIAgentModule|null */
+    private $aiAgentModule = null;
+
     public function register() {
         appLogger('Forooshyar: register() method called');
+        
+        // Register AI Agent Module
+        $this->registerAIAgentModule();
+    }
+    
+    /**
+     * Register AI Agent Module
+     *
+     * @return void
+     */
+    private function registerAIAgentModule()
+    {
+        if (class_exists(AIAgentModule::class)) {
+            $this->aiAgentModule = new AIAgentModule();
+            $this->aiAgentModule->register();
+            appLogger('Forooshyar: AI Agent Module registered');
+        }
     }
     
     public function bootEarly() {
@@ -213,6 +234,12 @@ class AppServiceProvider extends Provider
     
     public function boot() {
         appLogger('Forooshyar: boot() method called');
+        
+        // Boot AI Agent Module
+        if ($this->aiAgentModule !== null) {
+            $this->aiAgentModule->boot();
+            appLogger('Forooshyar: AI Agent Module booted');
+        }
     }
     
     public function ajax() {
