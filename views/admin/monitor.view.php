@@ -96,9 +96,12 @@ if (!defined('ABSPATH')) {
         <div class="forooshyar-monitor-section">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <h3><?php _e('آمار زنده', 'forooshyar'); ?></h3>
-                <button type="button" id="refresh-stats-btn" class="button">
-                    <?php _e('بروزرسانی آمار', 'forooshyar'); ?>
-                </button>
+                <div>
+                    <button type="button" id="refresh-stats-btn" class="button">
+                        <?php _e('بروزرسانی آمار', 'forooshyar'); ?>
+                    </button>
+                    <span id="stats-loading" class="spinner" style="float: none;"></span>
+                </div>
             </div>
             
             <div class="forooshyar-stats-grid">
@@ -138,6 +141,7 @@ if (!defined('ABSPATH')) {
                     <button type="button" id="refresh-logs-btn" class="button">
                         <?php _e('بروزرسانی', 'forooshyar'); ?>
                     </button>
+                    <span id="logs-loading" class="spinner" style="float: none;"></span>
                     <button type="button" id="clear-logs-btn" class="button">
                         <?php _e('پاک کردن لاگ‌ها', 'forooshyar'); ?>
                     </button>
@@ -223,6 +227,8 @@ if (!defined('ABSPATH')) {
     border: 1px solid #e0e0e0;
     border-radius: 4px;
     padding: 15px;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .forooshyar-response-meta {
@@ -256,6 +262,13 @@ if (!defined('ABSPATH')) {
     position: relative;
     direction: ltr;
     text-align: left;
+}
+
+.forooshyar-json-viewer pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    word-break: break-all;
 }
 
 .forooshyar-json-viewer .json-key {
@@ -512,6 +525,52 @@ jQuery(document).ready(function($) {
         loadLogs();
     });
     
+    // Initialize date/time display immediately
+    initDateTime();
+    
+    function initDateTime() {
+        function updateClock() {
+            var now = new Date();
+            
+            // Persian months
+            var persianMonths = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
+            var persianDays = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه', 'شنبه'];
+            
+            // Simple Gregorian to Jalali conversion
+            var gy = now.getFullYear();
+            var gm = now.getMonth() + 1;
+            var gd = now.getDate();
+            var g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+            var gy2 = (gm > 2) ? (gy + 1) : gy;
+            var days = 355666 + (365 * gy) + Math.floor((gy2 + 3) / 4) - Math.floor((gy2 + 99) / 100) + Math.floor((gy2 + 399) / 400) + gd + g_d_m[gm - 1];
+            var jy = -1595 + (33 * Math.floor(days / 12053));
+            days %= 12053;
+            jy += 4 * Math.floor(days / 1461);
+            days %= 1461;
+            if (days > 365) {
+                jy += Math.floor((days - 1) / 365);
+                days = (days - 1) % 365;
+            }
+            var jm = (days < 186) ? 1 + Math.floor(days / 31) : 7 + Math.floor((days - 186) / 30);
+            var jd = 1 + ((days < 186) ? (days % 31) : ((days - 186) % 30));
+            
+            // Convert to Persian digits
+            function toPersian(num) {
+                var persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+                return String(num).replace(/[0-9]/g, function(d) { return persianDigits[d]; });
+            }
+            
+            var dateStr = persianDays[now.getDay()] + '، ' + toPersian(jd) + ' ' + persianMonths[jm - 1] + ' ' + toPersian(jy);
+            var timeStr = toPersian(now.getHours().toString().padStart(2, '0')) + ':' + toPersian(now.getMinutes().toString().padStart(2, '0'));
+            
+            $('.forooshyar-current-date').text(dateStr);
+            $('.forooshyar-current-time').text(timeStr);
+        }
+        
+        updateClock();
+        setInterval(updateClock, 1000);
+    }
+    
     function updateEndpointParams() {
         var selectedOption = $('#api-endpoint option:selected');
         var paramsData = selectedOption.data('params');
@@ -701,6 +760,9 @@ jQuery(document).ready(function($) {
     }
     
     function loadStats() {
+        $('#stats-loading').addClass('is-active');
+        $('#refresh-stats-btn').prop('disabled', true);
+        
         $.ajax({
             url: ajaxurl,
             type: 'GET',
@@ -725,6 +787,10 @@ jQuery(document).ready(function($) {
                     total_products: '?',
                     cache_entries: '?'
                 });
+            },
+            complete: function() {
+                $('#stats-loading').removeClass('is-active');
+                $('#refresh-stats-btn').prop('disabled', false);
             }
         });
     }
@@ -762,6 +828,9 @@ jQuery(document).ready(function($) {
             filterParams.status_code = 0; // Get all and filter
         }
         
+        $('#logs-loading').addClass('is-active');
+        $('#refresh-logs-btn').prop('disabled', true);
+        
         $.ajax({
             url: ajaxurl,
             type: 'GET',
@@ -790,6 +859,10 @@ jQuery(document).ready(function($) {
             error: function(xhr, status, error) {
                 console.error('خطا در ارتباط با سرور برای دریافت لاگ‌ها:', error);
                 displayLogs({logs: [], total: 0});
+            },
+            complete: function() {
+                $('#logs-loading').removeClass('is-active');
+                $('#refresh-logs-btn').prop('disabled', false);
             }
         });
     }

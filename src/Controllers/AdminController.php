@@ -355,10 +355,10 @@ class AdminController extends Controller
             }
             
             return [
-                'total_requests' => $performanceMetrics['requests_last_24h'],
+                'total_requests' => $performanceMetrics['total_requests_all_time'],
                 'cache_hit_rate' => $cacheHitRate,
                 'average_response_time' => $performanceMetrics['avg_response_time_24h'],
-                'today_requests' => $performanceMetrics['requests_last_24h'],
+                'today_requests' => $performanceMetrics['today_requests'],
                 'total_products' => $publishedProducts,
                 'total_variations' => $publishedVariations,
                 'cache_entries' => $cacheStats['total_entries'],

@@ -482,6 +482,14 @@ class ApiLogService
             ARRAY_A
         );
         
+        // Get total requests (all time)
+        $totalRequests = $wpdb->get_var("SELECT COUNT(*) FROM {$tableName}");
+        
+        // Get today's requests (from midnight)
+        $todayRequests = $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$tableName} WHERE DATE(created_at) = CURDATE()"
+        );
+        
         // Get current rate limit status
         $rateLimitTable = $wpdb->prefix . self::RATE_LIMIT_TABLE;
         $currentRateLimit = $wpdb->get_var(
@@ -499,6 +507,8 @@ class ApiLogService
         
         return [
             'requests_last_24h' => (int) $metrics['requests_24h'],
+            'total_requests_all_time' => (int) $totalRequests,
+            'today_requests' => (int) $todayRequests,
             'avg_response_time_24h' => round((float) $metrics['avg_response_time_24h'], 3),
             'max_response_time_24h' => round((float) $metrics['max_response_time_24h'], 3),
             'cache_hit_rate_24h' => $metrics['requests_24h'] > 0 ? 

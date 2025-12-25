@@ -115,8 +115,8 @@ class ApiLoggingMiddleware
         // This is the primary method for detecting cache hits
         if (isset($GLOBALS['forooshyar_cache_hit'])) {
             $cacheHit = (bool) $GLOBALS['forooshyar_cache_hit'];
-            // Reset the global for the next request
-            unset($GLOBALS['forooshyar_cache_hit']);
+            // Don't unset - let the caller (admin test) also read it
+            // The global will be reset on the next CacheService::get() call
             return $cacheHit;
         }
         
