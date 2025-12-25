@@ -279,7 +279,7 @@ class OllamaProvider implements LLMProviderInterface
 
         return [
             'success' => true,
-            'message' => __('اتصال به Ollama با موفقیت برقرار شد', 'forooshyar'
+            'message' => __('اتصال به Ollama با موفقیت برقرار شد', 'forooshyar'),
         ];
     }
 
