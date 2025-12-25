@@ -78,8 +78,8 @@ class OllamaProvider implements LLMProviderInterface
             'prompt' => $prompt,
             'stream' => false,
             'options' => [
-                'temperature' => isset($options['temperature']) ? $options['temperature'] : $this->config['temperature'],
-                'num_predict' => isset($options['max_tokens']) ? $options['max_tokens'] : $this->config['max_tokens'],
+                'temperature' => (float) (isset($options['temperature']) ? $options['temperature'] : $this->config['temperature']),
+                'num_predict' => (int) (isset($options['max_tokens']) ? $options['max_tokens'] : $this->config['max_tokens']),
             ],
         ];
 
@@ -146,8 +146,8 @@ class OllamaProvider implements LLMProviderInterface
             'messages' => $messages,
             'stream' => false,
             'options' => [
-                'temperature' => isset($options['temperature']) ? $options['temperature'] : $this->config['temperature'],
-                'num_predict' => isset($options['max_tokens']) ? $options['max_tokens'] : $this->config['max_tokens'],
+                'temperature' => (float) (isset($options['temperature']) ? $options['temperature'] : $this->config['temperature']),
+                'num_predict' => (int) (isset($options['max_tokens']) ? $options['max_tokens'] : $this->config['max_tokens']),
             ],
         ];
 
