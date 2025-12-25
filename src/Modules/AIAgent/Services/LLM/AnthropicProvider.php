@@ -152,7 +152,7 @@ class AnthropicProvider implements LLMProviderInterface
         if (empty($this->config['api_key'])) {
             return [
                 'success' => false,
-                'message' => 'API key is not configured',
+                'message' => __('کلید API پیکربندی نشده است', 'forooshyar'),
             ];
         }
 
@@ -164,13 +164,13 @@ class AnthropicProvider implements LLMProviderInterface
         if ($result['success']) {
             return [
                 'success' => true,
-                'message' => 'Successfully connected to Anthropic Claude',
+                'message' => __('اتصال به Anthropic Claude با موفقیت برقرار شد', 'forooshyar'),
             ];
         }
 
         return [
             'success' => false,
-            'message' => 'Connection failed: ' . ($result['error'] ?: 'Unknown error'),
+            'message' => __('خطا در اتصال: ', 'forooshyar') . ($result['error'] ?: __('خطای ناشناخته', 'forooshyar')),
         ];
     }
 

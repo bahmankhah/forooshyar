@@ -249,7 +249,7 @@ class OllamaProvider implements LLMProviderInterface
         if (is_wp_error($response)) {
             return [
                 'success' => false,
-                'message' => 'Connection failed: ' . $response->get_error_message(),
+                'message' => __('اتصال ناموفق: ', 'forooshyar') . $response->get_error_message(),
             ];
         }
 
@@ -258,7 +258,7 @@ class OllamaProvider implements LLMProviderInterface
         if ($statusCode !== 200) {
             return [
                 'success' => false,
-                'message' => "Connection failed with status {$statusCode}",
+                'message' => sprintf(__('اتصال ناموفق با کد وضعیت %d', 'forooshyar'), $statusCode),
             ];
         }
 
@@ -270,7 +270,7 @@ class OllamaProvider implements LLMProviderInterface
             return [
                 'success' => true,
                 'message' => sprintf(
-                    'Connected to Ollama, but model "%s" is not installed. Available: %s',
+                    __('اتصال به Ollama برقرار شد، اما مدل "%s" نصب نیست. مدل‌های موجود: %s', 'forooshyar'),
                     $configuredModel,
                     implode(', ', array_slice($models, 0, 5))
                 ),
@@ -279,7 +279,7 @@ class OllamaProvider implements LLMProviderInterface
 
         return [
             'success' => true,
-            'message' => 'Successfully connected to Ollama',
+            'message' => __('اتصال به Ollama با موفقیت برقرار شد', 'forooshyar'),
         ];
     }
 

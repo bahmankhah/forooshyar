@@ -143,25 +143,26 @@ $tierName = isset($subscriptionStatus['tier_name']) ? $subscriptionStatus['tier_
                             break;
                         case 'multiselect':
                     ?>
-                        <select name="<?php echo esc_attr($fieldName); ?>[]" 
-                                id="<?php echo esc_attr($fieldName); ?>" 
-                                multiple 
-                                class="aiagent-multiselect"
-                                style="min-width: 300px; min-height: 100px;"
-                                <?php echo $disabled; ?>>
+                        <div class="aiagent-checkbox-group" id="<?php echo esc_attr($fieldName); ?>_group">
                             <?php 
                             $currentValues = is_array($value) ? $value : [];
                             $options = isset($config['options']) ? $config['options'] : [];
                             foreach ($options as $optKey => $optLabel): 
                                 $optValue = is_numeric($optKey) ? $optLabel : $optKey;
                                 $optDisplay = is_numeric($optKey) ? sprintf('%02d:00', $optLabel) : $optLabel;
+                                $checkboxId = $fieldName . '_' . $optValue;
                             ?>
-                            <option value="<?php echo esc_attr($optValue); ?>" 
-                                    <?php echo in_array($optValue, $currentValues) ? 'selected' : ''; ?>>
-                                <?php echo esc_html($optDisplay); ?>
-                            </option>
+                            <label class="aiagent-checkbox-item" for="<?php echo esc_attr($checkboxId); ?>">
+                                <input type="checkbox" 
+                                       name="<?php echo esc_attr($fieldName); ?>[]" 
+                                       id="<?php echo esc_attr($checkboxId); ?>" 
+                                       value="<?php echo esc_attr($optValue); ?>"
+                                       <?php echo in_array($optValue, $currentValues) ? 'checked' : ''; ?>
+                                       <?php echo $disabled; ?>>
+                                <span class="checkbox-label"><?php echo esc_html($optDisplay); ?></span>
+                            </label>
                             <?php endforeach; ?>
-                        </select>
+                        </div>
                     <?php
                             break;
                         case 'number':
@@ -446,6 +447,48 @@ $tierName = isset($subscriptionStatus['tier_name']) ? $subscriptionStatus['tier_
 .forooshyar-toggle input:checked + .toggle-slider:before {
     transform: translateX(-26px);
 }
+
+.aiagent-checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    max-width: 600px;
+}
+
+.aiagent-checkbox-item {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    background: #f0f0f1;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin: 0;
+}
+
+.aiagent-checkbox-item:hover {
+    background: #e0e0e0;
+    border-color: #999;
+}
+
+.aiagent-checkbox-item input[type="checkbox"] {
+    margin: 0 8px 0 0;
+}
+
+.aiagent-checkbox-item input[type="checkbox"]:checked + .checkbox-label {
+    font-weight: 600;
+}
+
+.aiagent-checkbox-item:has(input:checked) {
+    background: #e7f3ff;
+    border-color: #2196F3;
+}
+
+.aiagent-checkbox-item .checkbox-label {
+    font-size: 13px;
+    white-space: nowrap;
+}
 </style>
 
 <script>
@@ -496,7 +539,17 @@ jQuery(document).ready(function($) {
             var key = name.replace('aiagent_', '').replace('[]', '');
             
             if ($el.attr('type') === 'checkbox') {
-                settings[key] = $el.is(':checked') ? '1' : '0';
+                // Check if it's part of a checkbox group (multiselect)
+                if (name.endsWith('[]')) {
+                    if (!settings[key]) {
+                        settings[key] = [];
+                    }
+                    if ($el.is(':checked')) {
+                        settings[key].push($el.val());
+                    }
+                } else {
+                    settings[key] = $el.is(':checked') ? '1' : '0';
+                }
             } else if ($el.is('select[multiple]')) {
                 settings[key] = $el.val() || [];
             } else {
@@ -611,13 +664,25 @@ jQuery(document).ready(function($) {
             success: function(response) {
                 var $result = $('#aiagent-connection-result');
                 if (response.success) {
-                    $result.removeClass('error').addClass('success').html('✓ <?php _e('تحلیل با موفقیت انجام شد', 'forooshyar'); ?>').show();
+                    var message = response.data.message || '<?php _e('تحلیل با موفقیت انجام شد', 'forooshyar'); ?>';
+                    if (response.data.errors && response.data.errors.length > 0) {
+                        message += '<br><small><?php _e('هشدارها:', 'forooshyar'); ?> ' + response.data.errors.join(', ') + '</small>';
+                    }
+                    $result.removeClass('error').addClass('success').html('✓ ' + message).show();
                 } else {
-                    $result.removeClass('success').addClass('error').html('✗ ' + (response.data.message || '<?php _e('خطا در تحلیل', 'forooshyar'); ?>')).show();
+                    var errorMsg = response.data.message || '<?php _e('خطا در تحلیل', 'forooshyar'); ?>';
+                    if (response.data.errors && response.data.errors.length > 0) {
+                        errorMsg += '<br><small>' + response.data.errors.join('<br>') + '</small>';
+                    }
+                    $result.removeClass('success').addClass('error').html('✗ ' + errorMsg).show();
                 }
             },
-            error: function() {
-                $('#aiagent-connection-result').removeClass('success').addClass('error').html('<?php _e('خطا در ارتباط با سرور', 'forooshyar'); ?>').show();
+            error: function(xhr) {
+                var errorMsg = '<?php _e('خطا در ارتباط با سرور', 'forooshyar'); ?>';
+                if (xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message) {
+                    errorMsg = xhr.responseJSON.data.message;
+                }
+                $('#aiagent-connection-result').removeClass('success').addClass('error').html('✗ ' + errorMsg).show();
             },
             complete: function() {
                 $btn.prop('disabled', false).html(originalText);

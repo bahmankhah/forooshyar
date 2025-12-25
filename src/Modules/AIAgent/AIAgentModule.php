@@ -64,6 +64,9 @@ class AIAgentModule
         $settingsController = Container::resolve(SettingsController::class);
         $settingsController->register();
 
+        // Always register AJAX handlers for testing (test connection, run analysis)
+        $this->registerAjaxHandlers();
+
         if (!$this->shouldActivate()) {
             $this->booted = true;
             return;
@@ -363,14 +366,6 @@ class AIAgentModule
      */
     public function registerHooks()
     {
-        // AJAX handlers
-        add_action('wp_ajax_aiagent_run_analysis', [$this, 'ajaxRunAnalysis']);
-        add_action('wp_ajax_aiagent_execute_action', [$this, 'ajaxExecuteAction']);
-        add_action('wp_ajax_aiagent_approve_action', [$this, 'ajaxApproveAction']);
-        add_action('wp_ajax_aiagent_get_stats', [$this, 'ajaxGetStats']);
-        add_action('wp_ajax_aiagent_test_connection', [$this, 'ajaxTestConnection']);
-        // Note: aiagent_save_settings and aiagent_reset_settings are handled by SettingsController
-
         // Cron schedules
         add_filter('cron_schedules', [$this, 'addCronSchedules']);
         add_action('aiagent_scheduled_analysis', [$this, 'runScheduledAnalysis']);
@@ -380,6 +375,20 @@ class AIAgentModule
             dirname(dirname(dirname(__DIR__))) . '/forooshyar.php',
             [$this, 'onActivation']
         );
+    }
+
+    /**
+     * Register AJAX handlers (always registered for testing)
+     *
+     * @return void
+     */
+    public function registerAjaxHandlers()
+    {
+        add_action('wp_ajax_aiagent_run_analysis', [$this, 'ajaxRunAnalysis']);
+        add_action('wp_ajax_aiagent_execute_action', [$this, 'ajaxExecuteAction']);
+        add_action('wp_ajax_aiagent_approve_action', [$this, 'ajaxApproveAction']);
+        add_action('wp_ajax_aiagent_get_stats', [$this, 'ajaxGetStats']);
+        add_action('wp_ajax_aiagent_test_connection', [$this, 'ajaxTestConnection']);
     }
 
     /**
@@ -446,7 +455,7 @@ class AIAgentModule
         check_ajax_referer('aiagent_nonce', 'nonce');
 
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error(['message' => 'Unauthorized'], 403);
+            wp_send_json_error(['message' => __('دسترسی غیرمجاز', 'forooshyar')], 403);
         }
 
         $type = isset($_POST['type']) ? sanitize_text_field($_POST['type']) : 'all';
@@ -454,6 +463,17 @@ class AIAgentModule
 
         try {
             $result = $service->runAnalysis($type);
+            
+            if ($result['success']) {
+                $message = sprintf(
+                    __('تحلیل با موفقیت انجام شد. محصولات: %d، مشتریان: %d، اقدامات ایجاد شده: %d', 'forooshyar'),
+                    isset($result['products']['analyzed']) ? $result['products']['analyzed'] : 0,
+                    isset($result['customers']['analyzed']) ? $result['customers']['analyzed'] : 0,
+                    $result['actions_created']
+                );
+                $result['message'] = $message;
+            }
+            
             wp_send_json_success($result);
         } catch (\Exception $e) {
             wp_send_json_error(['message' => $e->getMessage()], 500);
@@ -470,7 +490,7 @@ class AIAgentModule
         check_ajax_referer('aiagent_nonce', 'nonce');
 
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error(['message' => 'Unauthorized'], 403);
+            wp_send_json_error(['message' => __('دسترسی غیرمجاز', 'forooshyar')], 403);
         }
 
         $actionId = isset($_POST['action_id']) ? absint($_POST['action_id']) : 0;
@@ -494,7 +514,7 @@ class AIAgentModule
         check_ajax_referer('aiagent_nonce', 'nonce');
 
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error(['message' => 'Unauthorized'], 403);
+            wp_send_json_error(['message' => __('دسترسی غیرمجاز', 'forooshyar')], 403);
         }
 
         $actionId = isset($_POST['action_id']) ? absint($_POST['action_id']) : 0;
@@ -503,7 +523,7 @@ class AIAgentModule
         try {
             $db->approveAction($actionId, get_current_user_id());
             do_action('aiagent_action_approved', $actionId, get_current_user_id());
-            wp_send_json_success(['message' => 'Action approved']);
+            wp_send_json_success(['message' => __('اقدام تأیید شد', 'forooshyar')]);
         } catch (\Exception $e) {
             wp_send_json_error(['message' => $e->getMessage()], 500);
         }
@@ -519,7 +539,7 @@ class AIAgentModule
         check_ajax_referer('aiagent_nonce', 'nonce');
 
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error(['message' => 'Unauthorized'], 403);
+            wp_send_json_error(['message' => __('دسترسی غیرمجاز', 'forooshyar')], 403);
         }
 
         $days = isset($_POST['days']) ? absint($_POST['days']) : 30;
@@ -543,7 +563,7 @@ class AIAgentModule
         check_ajax_referer('aiagent_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(['message' => 'Unauthorized'], 403);
+            wp_send_json_error(['message' => __('دسترسی غیرمجاز', 'forooshyar')], 403);
         }
 
         $service = Container::resolve(AIAgentService::class);

@@ -396,7 +396,7 @@ class OpenAIProvider implements LLMProviderInterface
         if (empty($this->config['api_key'])) {
             return [
                 'success' => false,
-                'message' => 'API key is not configured',
+                'message' => __('کلید API پیکربندی نشده است', 'forooshyar'),
             ];
         }
 
@@ -416,7 +416,7 @@ class OpenAIProvider implements LLMProviderInterface
         if (is_wp_error($response)) {
             return [
                 'success' => false,
-                'message' => 'Connection failed: ' . $response->get_error_message(),
+                'message' => __('خطا در اتصال: ', 'forooshyar') . $response->get_error_message(),
             ];
         }
 
@@ -425,27 +425,27 @@ class OpenAIProvider implements LLMProviderInterface
         if ($statusCode === 401) {
             return [
                 'success' => false,
-                'message' => 'Invalid API key',
+                'message' => __('کلید API نامعتبر است', 'forooshyar'),
             ];
         }
 
         if ($statusCode === 403) {
             return [
                 'success' => false,
-                'message' => 'Access denied. Check your API key permissions.',
+                'message' => __('دسترسی رد شد. مجوزهای کلید API را بررسی کنید.', 'forooshyar'),
             ];
         }
 
         if ($statusCode !== 200) {
             return [
                 'success' => false,
-                'message' => "Connection failed with status {$statusCode}",
+                'message' => sprintf(__('خطا در اتصال با کد وضعیت %d', 'forooshyar'), $statusCode),
             ];
         }
 
         return [
             'success' => true,
-            'message' => 'Successfully connected to OpenAI',
+            'message' => __('اتصال به OpenAI با موفقیت برقرار شد', 'forooshyar'),
         ];
     }
 

@@ -107,7 +107,7 @@ class AIAgentService
                     $results['products'] = $this->analyzeProducts($options);
                     $results['actions_created'] += $this->runContext['actions_created'];
                 } else {
-                    $results['warnings'][] = 'Product analysis feature not available in your subscription';
+                    $results['warnings'][] = __('قابلیت تحلیل محصولات در اشتراک شما فعال نیست', 'forooshyar');
                 }
             }
 
@@ -117,7 +117,7 @@ class AIAgentService
                     $results['customers'] = $this->analyzeCustomers($options);
                     $results['actions_created'] += $this->runContext['actions_created'];
                 } else {
-                    $results['warnings'][] = 'Customer analysis feature not available in your subscription';
+                    $results['warnings'][] = __('قابلیت تحلیل مشتریان در اشتراک شما فعال نیست', 'forooshyar');
                 }
             }
 
@@ -193,12 +193,12 @@ class AIAgentService
     {
         // Check module enabled
         if (!$this->subscription->isModuleEnabled()) {
-            throw new FeatureDisabledException('AI Agent module is not enabled');
+            throw new FeatureDisabledException(__('ماژول دستیار هوشمند فعال نیست', 'forooshyar'));
         }
 
         // Check usage limits
         if ($this->subscription->isLimitExceeded('analyses_per_day')) {
-            throw new SubscriptionLimitException('Daily analysis limit exceeded');
+            throw new SubscriptionLimitException(__('محدودیت تحلیل روزانه به پایان رسیده است', 'forooshyar'));
         }
 
         // Validate LLM configuration
@@ -209,7 +209,7 @@ class AIAgentService
         ]);
 
         if (!$validation['valid']) {
-            throw new LLMConnectionException('Invalid LLM configuration: ' . implode(', ', $validation['errors']));
+            throw new LLMConnectionException(__('پیکربندی LLM نامعتبر است: ', 'forooshyar') . implode(', ', $validation['errors']));
         }
 
         // Check if within preferred hours (optional)
@@ -306,7 +306,7 @@ class AIAgentService
         $this->logger->info("Analyzing single {$type}", ['id' => $entityId]);
 
         if (!$this->subscription->isModuleEnabled()) {
-            return ['success' => false, 'error' => 'Module not enabled'];
+            return ['success' => false, 'error' => __('ماژول فعال نیست', 'forooshyar')];
         }
 
         $analyzer = $type === 'product' ? $this->productAnalyzer : $this->customerAnalyzer;
@@ -402,7 +402,7 @@ class AIAgentService
             // Check action limit
             $usageLimit = $this->subscription->checkUsageLimit('actions_per_day');
             if ($usageLimit['remaining'] <= 0 && $usageLimit['allowed'] !== -1) {
-                $errors[] = 'Daily action limit reached';
+                $errors[] = __('محدودیت اقدامات روزانه به پایان رسیده است', 'forooshyar');
                 break;
             }
 
@@ -412,10 +412,10 @@ class AIAgentService
                     $executed++;
                     $this->subscription->incrementUsage('actions_per_day');
                 } else {
-                    $errors[] = "Action {$action['id']}: " . ($result['message'] ?: 'Unknown error');
+                    $errors[] = sprintf(__('اقدام %d: ', 'forooshyar'), $action['id']) . ($result['message'] ?: __('خطای ناشناخته', 'forooshyar'));
                 }
             } catch (\Exception $e) {
-                $errors[] = "Action {$action['id']}: " . $e->getMessage();
+                $errors[] = sprintf(__('اقدام %d: ', 'forooshyar'), $action['id']) . $e->getMessage();
             }
         }
 
@@ -441,7 +441,7 @@ class AIAgentService
         if (!$this->subscription->isFeatureEnabled(SubscriptionManager::FEATURE_AUTO_ACTIONS)) {
             return [
                 'success' => false,
-                'error' => 'Auto actions feature is not enabled for your subscription',
+                'error' => __('قابلیت اجرای خودکار اقدامات در اشتراک شما فعال نیست', 'forooshyar'),
                 'executed' => 0,
             ];
         }
@@ -451,7 +451,7 @@ class AIAgentService
         if ($usageLimit['remaining'] <= 0 && $usageLimit['allowed'] !== -1) {
             return [
                 'success' => false,
-                'error' => 'Daily action limit exceeded',
+                'error' => __('محدودیت اقدامات روزانه به پایان رسیده است', 'forooshyar'),
                 'executed' => 0,
             ];
         }
@@ -471,7 +471,7 @@ class AIAgentService
                     $this->subscription->incrementUsage('actions_per_day');
                 } else {
                     $failed++;
-                    $errors[] = $result['message'] ?: $result['error'] ?: 'Unknown error';
+                    $errors[] = $result['message'] ?: $result['error'] ?: __('خطای ناشناخته', 'forooshyar');
                 }
             } catch (\Exception $e) {
                 $failed++;
