@@ -2,6 +2,8 @@
 /**
  * AI Agent WP-CLI Commands
  * 
+ * Commands are registered under 'forooshyar ai' namespace
+ * 
  * @package Forooshyar\Modules\AIAgent\Commands
  */
 
@@ -9,7 +11,6 @@ namespace Forooshyar\Modules\AIAgent\Commands;
 
 use WPLite\Container;
 use Forooshyar\Modules\AIAgent\Services\AIAgentService;
-use Forooshyar\Modules\AIAgent\Services\SubscriptionManager;
 use Forooshyar\Modules\AIAgent\Services\SettingsManager;
 use Forooshyar\Modules\AIAgent\Services\ActionExecutor;
 use Forooshyar\Modules\AIAgent\Services\DatabaseService;
@@ -21,10 +22,10 @@ use Forooshyar\Modules\AIAgent\Database\Migrations;
 class AIAgentCommand
 {
     /**
-     * Show module status and subscription info
+     * Show module status
      *
      * ## EXAMPLES
-     *     wp aiagent status
+     *     wp forooshyar ai status
      *
      * @when after_wp_load
      */
@@ -46,7 +47,7 @@ class AIAgentCommand
      * Enable the AI Agent module
      *
      * ## EXAMPLES
-     *     wp aiagent enable
+     *     wp forooshyar ai enable
      *
      * @when after_wp_load
      */
@@ -60,7 +61,7 @@ class AIAgentCommand
      * Disable the AI Agent module
      *
      * ## EXAMPLES
-     *     wp aiagent disable
+     *     wp forooshyar ai disable
      *
      * @when after_wp_load
      */
@@ -81,20 +82,15 @@ class AIAgentCommand
      * default: all
      * ---
      *
-     * [--limit=<limit>]
-     * : Limit entities to analyze
-     *
      * ## EXAMPLES
-     *     wp aiagent analyze
-     *     wp aiagent analyze --type=products
-     *     wp aiagent analyze --type=customers --limit=10
+     *     wp forooshyar ai analyze
+     *     wp forooshyar ai analyze --type=products
      *
      * @when after_wp_load
      */
     public function analyze($args, $assoc_args)
     {
         $type = isset($assoc_args['type']) ? $assoc_args['type'] : 'all';
-        
         $service = Container::resolve(AIAgentService::class);
 
         \WP_CLI::line("Running {$type} analysis...");
@@ -106,13 +102,11 @@ class AIAgentCommand
                 \WP_CLI::success('Analysis completed');
                 
                 if ($result['products']) {
-                    \WP_CLI::line("Products analyzed: {$result['products']['analyzed']}/{$result['products']['total']}");
-                    \WP_CLI::line("Suggestions generated: " . count($result['products']['suggestions']));
+                    \WP_CLI::line("Products: {$result['products']['analyzed']}/{$result['products']['total']}");
                 }
                 
                 if ($result['customers']) {
-                    \WP_CLI::line("Customers analyzed: {$result['customers']['analyzed']}/{$result['customers']['total']}");
-                    \WP_CLI::line("Suggestions generated: " . count($result['customers']['suggestions']));
+                    \WP_CLI::line("Customers: {$result['customers']['analyzed']}/{$result['customers']['total']}");
                 }
             } else {
                 \WP_CLI::error('Analysis failed: ' . implode(', ', $result['errors']));
@@ -131,16 +125,14 @@ class AIAgentCommand
      * : Subcommand (list, execute, approve, cancel)
      *
      * [--id=<id>]
-     * : Action ID for execute/approve/cancel
+     * : Action ID
      *
      * [--status=<status>]
-     * : Filter by status for list
+     * : Filter by status
      *
      * ## EXAMPLES
-     *     wp aiagent actions list
-     *     wp aiagent actions list --status=pending
-     *     wp aiagent actions execute --id=123
-     *     wp aiagent actions approve --id=123
+     *     wp forooshyar ai actions list
+     *     wp forooshyar ai actions execute --id=123
      *
      * @when after_wp_load
      */
@@ -224,7 +216,7 @@ class AIAgentCommand
      * ## OPTIONS
      *
      * [--days=<days>]
-     * : Number of days to show stats for
+     * : Number of days
      * ---
      * default: 30
      * ---
@@ -236,9 +228,8 @@ class AIAgentCommand
      * ---
      *
      * ## EXAMPLES
-     *     wp aiagent stats
-     *     wp aiagent stats --days=7
-     *     wp aiagent stats --format=json
+     *     wp forooshyar ai stats
+     *     wp forooshyar ai stats --days=7
      *
      * @when after_wp_load
      */
@@ -259,10 +250,8 @@ class AIAgentCommand
         \WP_CLI::line('----------------------------');
         \WP_CLI::line("Total Analyses: {$stats['total_analyses']}");
         \WP_CLI::line("Total Actions: {$stats['total_actions']}");
-        \WP_CLI::line("Pending Actions: {$stats['summary']['pending_actions']}");
+        \WP_CLI::line("Pending: {$stats['summary']['pending_actions']}");
         \WP_CLI::line("Success Rate: {$stats['summary']['success_rate']}%");
-        \WP_CLI::line("Analyses Today: {$stats['summary']['analyses_today']}");
-        \WP_CLI::line("Completed Today: {$stats['summary']['completed_today']}");
     }
 
     /**
@@ -274,16 +263,15 @@ class AIAgentCommand
      * : Subcommand (list, get, set, reset)
      *
      * [<key>]
-     * : Setting key for get/set
+     * : Setting key
      *
      * [<value>]
-     * : Setting value for set
+     * : Setting value
      *
      * ## EXAMPLES
-     *     wp aiagent settings list
-     *     wp aiagent settings get llm_provider
-     *     wp aiagent settings set llm_provider openai
-     *     wp aiagent settings reset
+     *     wp forooshyar ai settings list
+     *     wp forooshyar ai settings get llm_provider
+     *     wp forooshyar ai settings set llm_provider openai
      *
      * @when after_wp_load
      */
@@ -336,14 +324,8 @@ class AIAgentCommand
     /**
      * Test LLM connection
      *
-     * ## OPTIONS
-     *
-     * [--verbose]
-     * : Show verbose output
-     *
      * ## EXAMPLES
-     *     wp aiagent test-llm
-     *     wp aiagent test-llm --verbose
+     *     wp forooshyar ai test-llm
      *
      * @when after_wp_load
      * @subcommand test-llm
@@ -361,7 +343,7 @@ class AIAgentCommand
     }
 
     /**
-     * Clean old analysis data
+     * Clean old data
      *
      * ## OPTIONS
      *
@@ -372,8 +354,7 @@ class AIAgentCommand
      * ---
      *
      * ## EXAMPLES
-     *     wp aiagent cleanup
-     *     wp aiagent cleanup --days=30
+     *     wp forooshyar ai cleanup
      *
      * @when after_wp_load
      */
@@ -390,7 +371,7 @@ class AIAgentCommand
      * Run database migrations
      *
      * ## EXAMPLES
-     *     wp aiagent migrate
+     *     wp forooshyar ai migrate
      *
      * @when after_wp_load
      */

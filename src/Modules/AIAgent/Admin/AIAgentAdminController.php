@@ -80,16 +80,17 @@ class AIAgentAdminController
 
     /**
      * Render settings page
+     * 
+     * Note: AI Agent settings are now integrated as a tab in the main settings page.
+     * This redirects to the main settings page with the aiagent tab selected.
      *
      * @return void
      */
     public function settingsPage()
     {
-        $settingsBySection = $this->settings->getBySection();
-        $tier = $this->subscription->getSubscriptionTier();
-        $features = $this->subscription->getEnabledFeatures();
-
-        include __DIR__ . '/Views/settings.php';
+        // Redirect to main settings page with aiagent tab
+        wp_redirect(admin_url('admin.php?page=forooshyar&tab=aiagent'));
+        exit;
     }
 
     /**

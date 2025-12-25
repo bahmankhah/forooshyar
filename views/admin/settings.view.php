@@ -48,6 +48,13 @@ if (!defined('ABSPATH')) {
            class="nav-tab <?php echo ($current_tab === 'api') ? 'nav-tab-active' : ''; ?>">
             <?php _e('محدودیت‌های API', 'forooshyar'); ?>
         </a>
+        <?php if (get_option('aiagent_module_enabled', false) || current_user_can('manage_options')): ?>
+        <a href="?page=forooshyar&tab=aiagent" 
+           class="nav-tab <?php echo ($current_tab === 'aiagent') ? 'nav-tab-active' : ''; ?>">
+            <span class="dashicons dashicons-chart-line" style="font-size: 16px; vertical-align: middle; margin-left: 5px;"></span>
+            <?php _e('دستیار هوشمند', 'forooshyar'); ?>
+        </a>
+        <?php endif; ?>
         <!-- <a href="?page=forooshyar&tab=advanced" 
            class="nav-tab <?php echo ($current_tab === 'advanced') ? 'nav-tab-active' : ''; ?>">
             <?php _e('پیشرفته', 'forooshyar'); ?>
@@ -77,6 +84,9 @@ if (!defined('ABSPATH')) {
                     break;
                 case 'advanced':
                     include __DIR__ . '/partials/advanced-tab.view.php';
+                    break;
+                case 'aiagent':
+                    include __DIR__ . '/partials/aiagent-tab.view.php';
                     break;
                 default:
                     include __DIR__ . '/partials/general-tab.view.php';

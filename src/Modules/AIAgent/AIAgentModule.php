@@ -22,6 +22,7 @@ use Forooshyar\Modules\AIAgent\Services\NotificationService;
 use Forooshyar\Modules\AIAgent\Services\LLM\LLMFactory;
 use Forooshyar\Modules\AIAgent\Admin\AIAgentAdminController;
 use Forooshyar\Modules\AIAgent\Admin\SettingsController;
+use Forooshyar\Modules\AIAgent\Commands;
 use Forooshyar\Modules\AIAgent\Database\Migrations;
 
 class AIAgentModule
@@ -344,11 +345,11 @@ class AIAgentModule
      */
     public function registerCommands()
     {
-        if (!defined('WP_CLI') || !WP_CLI) {
+        if (!\defined('WP_CLI') || !WP_CLI) {
             return;
         }
 
-        \WP_CLI::add_command('aiagent', 'Forooshyar\\Modules\\AIAgent\\Commands\\AIAgentCommand');
+        \WP_CLI::add_command('forooshyar ai', Commands\AIAgentCommand::class);
     }
 
     /**

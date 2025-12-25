@@ -26,16 +26,16 @@ class SettingsManager
     /** @var array */
     private $cache = [];
 
-    /** @var array Section labels for admin UI */
+    /** @var array Section labels for admin UI (Persian) */
     private $sectionLabels = [
-        'general' => 'General Settings',
-        'llm' => 'LLM Configuration',
-        'analysis' => 'Analysis Settings',
-        'actions' => 'Action Settings',
-        'schedule' => 'Schedule Settings',
-        'notifications' => 'Notification Settings',
-        'rate_limiting' => 'Rate Limiting',
-        'debug' => 'Debug Settings',
+        'general' => 'تنظیمات عمومی',
+        'llm' => 'پیکربندی هوش مصنوعی',
+        'analysis' => 'تنظیمات تحلیل',
+        'actions' => 'تنظیمات اقدامات',
+        'schedule' => 'زمان‌بندی',
+        'notifications' => 'اعلان‌ها',
+        'rate_limiting' => 'محدودیت نرخ',
+        'debug' => 'اشکال‌زدایی',
     ];
 
     public function __construct()

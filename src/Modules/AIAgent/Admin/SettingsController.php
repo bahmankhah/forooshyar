@@ -56,17 +56,18 @@ class SettingsController
 
     /**
      * Render settings page
+     * 
+     * Note: AI Agent settings are now rendered as a tab in the main settings page
+     * via views/admin/partials/aiagent-tab.view.php
+     * This method is kept for backward compatibility but redirects to main settings
      *
      * @return void
      */
     public function render()
     {
-        $settingsBySection = $this->settings->getBySection();
-        $sectionLabels = $this->settings->getSectionLabels();
-        $subscriptionStatus = $this->subscription->getSubscriptionStatus();
-        $featuresComparison = $this->subscription->getFeaturesComparison();
-
-        include __DIR__ . '/Views/settings.php';
+        // Redirect to main settings page with aiagent tab
+        wp_redirect(admin_url('admin.php?page=forooshyar&tab=aiagent'));
+        exit;
     }
 
     /**
