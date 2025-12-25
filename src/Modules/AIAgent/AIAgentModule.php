@@ -369,7 +369,7 @@ class AIAgentModule
         add_action('wp_ajax_aiagent_approve_action', [$this, 'ajaxApproveAction']);
         add_action('wp_ajax_aiagent_get_stats', [$this, 'ajaxGetStats']);
         add_action('wp_ajax_aiagent_test_connection', [$this, 'ajaxTestConnection']);
-        add_action('wp_ajax_aiagent_save_settings', [$this, 'ajaxSaveSettings']);
+        // Note: aiagent_save_settings and aiagent_reset_settings are handled by SettingsController
 
         // Cron schedules
         add_filter('cron_schedules', [$this, 'addCronSchedules']);
@@ -556,36 +556,4 @@ class AIAgentModule
         }
     }
 
-    /**
-     * AJAX: Save settings
-     *
-     * @return void
-     */
-    public function ajaxSaveSettings()
-    {
-        check_ajax_referer('aiagent_nonce', 'nonce');
-
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(['message' => 'Unauthorized'], 403);
-        }
-
-        $settings = Container::resolve(SettingsManager::class);
-        $data = isset($_POST['settings']) ? $_POST['settings'] : [];
-
-        try {
-            foreach ($data as $key => $value) {
-                $key = sanitize_key($key);
-                $validation = $settings->validate($key, $value);
-                if (!$validation['valid']) {
-                    wp_send_json_error(['message' => $validation['error']], 400);
-                    return;
-                }
-                $settings->set($key, $value);
-            }
-            do_action('aiagent_settings_updated', array_keys($data));
-            wp_send_json_success(['message' => 'Settings saved']);
-        } catch (\Exception $e) {
-            wp_send_json_error(['message' => $e->getMessage()], 500);
-        }
-    }
 }

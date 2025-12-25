@@ -332,14 +332,63 @@ class SettingsManager
         }
 
         $oldValue = $this->get($key);
-        $result = update_option(self::OPTION_PREFIX . $key, $value);
+        $optionName = self::OPTION_PREFIX . $key;
+        
+        // update_option returns false if value is the same, so we use add_option as fallback
+        // First try update_option
+        $result = update_option($optionName, $value);
+        
+        // If update_option returns false, it might be because:
+        // 1. The value is the same (not an error)
+        // 2. The option doesn't exist yet
+        // 3. An actual error occurred
+        if (!$result) {
+            // Check if option exists and has the same value
+            $currentDbValue = get_option($optionName, '__NOT_SET__');
+            if ($currentDbValue === '__NOT_SET__') {
+                // Option doesn't exist, try to add it
+                $result = add_option($optionName, $value);
+            } else {
+                // Option exists, check if values are equal (considering type coercion)
+                $result = $this->valuesAreEqual($currentDbValue, $value);
+            }
+        }
 
         if ($result) {
             $this->cache[$key] = $value;
-            do_action('aiagent_settings_updated', $key, $oldValue, $value);
+            if ($oldValue !== $value) {
+                do_action('aiagent_settings_updated', $key, $oldValue, $value);
+            }
         }
 
         return $result;
+    }
+
+    /**
+     * Compare two values for equality (handles type coercion)
+     *
+     * @param mixed $a
+     * @param mixed $b
+     * @return bool
+     */
+    private function valuesAreEqual($a, $b)
+    {
+        // Handle arrays
+        if (is_array($a) && is_array($b)) {
+            return $a == $b;
+        }
+        
+        // Handle booleans stored as strings
+        if (is_bool($b)) {
+            return (bool)$a === $b;
+        }
+        
+        // Handle numbers stored as strings
+        if (is_numeric($a) && is_numeric($b)) {
+            return (float)$a === (float)$b;
+        }
+        
+        return $a == $b;
     }
 
     /**
@@ -407,18 +456,25 @@ class SettingsManager
 
             case 'select':
                 $options = isset($schema['options']) ? $schema['options'] : [];
-                if (!in_array($value, $options)) {
+                // Check if value is a valid key (for associative arrays) or value (for indexed arrays)
+                $validOptions = $this->getValidOptionValues($options);
+                if (!in_array($value, $validOptions, true) && !in_array((string)$value, $validOptions, true)) {
                     return ['valid' => false, 'error' => 'Invalid option selected'];
                 }
                 return ['valid' => true, 'error' => null];
 
             case 'multiselect':
                 if (!is_array($value)) {
+                    // Allow empty value
+                    if (empty($value)) {
+                        return ['valid' => true, 'error' => null];
+                    }
                     return ['valid' => false, 'error' => 'Value must be an array'];
                 }
                 $options = isset($schema['options']) ? $schema['options'] : [];
+                $validOptions = $this->getValidOptionValues($options);
                 foreach ($value as $v) {
-                    if (!in_array($v, $options)) {
+                    if (!in_array($v, $validOptions, true) && !in_array((string)$v, $validOptions, true) && !in_array((int)$v, $validOptions, true)) {
                         return ['valid' => false, 'error' => 'Invalid option in selection'];
                     }
                 }
@@ -439,6 +495,28 @@ class SettingsManager
             default:
                 return ['valid' => true, 'error' => null];
         }
+    }
+
+    /**
+     * Get valid option values from options array
+     * Handles both associative arrays (key => label) and indexed arrays
+     *
+     * @param array $options
+     * @return array
+     */
+    private function getValidOptionValues($options)
+    {
+        $validValues = [];
+        foreach ($options as $key => $value) {
+            // For associative arrays, the key is the valid value
+            // For indexed arrays (like range(0,23)), the value is the valid value
+            if (is_string($key) && !is_numeric($key)) {
+                $validValues[] = $key;
+            } else {
+                $validValues[] = $value;
+            }
+        }
+        return $validValues;
     }
 
     /**
