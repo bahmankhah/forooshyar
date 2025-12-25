@@ -885,7 +885,8 @@ jQuery(document).ready(function($) {
         logs.forEach(function(log) {
             var statusClass = (log.status_code >= 200 && log.status_code < 400) ? 'success' : 'error';
             var statusText = (log.status_code >= 200 && log.status_code < 400) ? 'موفق' : 'خطا';
-            var cacheStatus = log.cache_hit ? 'HIT' : 'MISS';
+            // cache_hit comes from DB as string "0" or "1", need to compare properly
+            var cacheStatus = (log.cache_hit === '1' || log.cache_hit === 1 || log.cache_hit === true) ? 'HIT' : 'MISS';
             var responseTime = parseFloat(log.response_time || 0).toFixed(2);
             
             // Format date to Persian/Jalali with time

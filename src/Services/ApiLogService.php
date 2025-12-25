@@ -364,9 +364,11 @@ class ApiLogService
             ARRAY_A
         );
         
-        // Decode parameters for display
+        // Decode parameters for display and cast types
         foreach ($logs as &$log) {
             $log['parameters'] = json_decode($log['parameters'], true);
+            // Cast cache_hit to boolean for proper JSON encoding
+            $log['cache_hit'] = (bool) $log['cache_hit'];
         }
         
         return [

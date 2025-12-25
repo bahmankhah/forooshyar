@@ -7,7 +7,6 @@ use Forooshyar\Services\CacheService;
 use Forooshyar\Services\ErrorHandlingService;
 use Forooshyar\Resources\ProductResource;
 use Forooshyar\Resources\ProductCollectionResource;
-use Forooshyar\Middleware\ApiLoggingMiddleware;
 use WP_REST_Request;
 use WP_REST_Response;
 
@@ -22,20 +21,16 @@ class ProductController extends Controller
     /** @var ErrorHandlingService */
     private $errorHandlingService;
     
-    /** @var ApiLoggingMiddleware */
-    private $loggingMiddleware;
 
     public function __construct(
         ProductService $productService = null, 
         CacheService $cacheService = null, 
-        ErrorHandlingService $errorHandlingService = null,
-        ApiLoggingMiddleware $loggingMiddleware = null
+        ErrorHandlingService $errorHandlingService = null
     ) {
         // Allow dependency injection for testing, but create instances if not provided
         $this->productService = $productService ?? $this->createProductService();
         $this->cacheService = $cacheService ?? $this->createCacheService();
         $this->errorHandlingService = $errorHandlingService ?? $this->createErrorHandlingService();
-        $this->loggingMiddleware = $loggingMiddleware ?? ApiLoggingMiddleware::create();
     }
 
     /**
@@ -46,9 +41,7 @@ class ProductController extends Controller
      */
     public function index(WP_REST_Request $request): WP_REST_Response
     {
-        return $this->loggingMiddleware->handle($request, function($request) {
-            return $this->handleIndex($request);
-        });
+        return $this->handleIndex($request);
     }
 
     /**
@@ -117,9 +110,7 @@ class ProductController extends Controller
      */
     public function show(WP_REST_Request $request): WP_REST_Response
     {
-        return $this->loggingMiddleware->handle($request, function($request) {
             return $this->handleShow($request);
-        });
     }
 
     /**
@@ -207,9 +198,7 @@ class ProductController extends Controller
      */
     public function getByIds(WP_REST_Request $request): WP_REST_Response
     {
-        return $this->loggingMiddleware->handle($request, function($request) {
             return $this->handleGetByIds($request);
-        });
     }
 
     /**
@@ -315,9 +304,7 @@ class ProductController extends Controller
      */
     public function getBySlugs(WP_REST_Request $request): WP_REST_Response
     {
-        return $this->loggingMiddleware->handle($request, function($request) {
             return $this->handleGetBySlugs($request);
-        });
     }
 
     /**
