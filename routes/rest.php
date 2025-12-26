@@ -9,8 +9,8 @@ Route::rest(function ($router) {
     $router->get('/products', [ProductController::class, 'index'])->middleware(ApiLoggingMiddleware::class)->make();
 
     // legacy routes
-    $router->get('/torob/products', [ProductController::class, 'index'])->middleware(ApiLoggingMiddleware::class)->make();
-    $router->get('/emalls/products', [ProductController::class, 'index'])->middleware(ApiLoggingMiddleware::class)->make();
+    $router->get('/torob/products', [ProductController::class, 'index'])->middleware(ApiLoggingMiddleware::class)->withoutNamespace()->make();
+    $router->get('/emalls/products', [ProductController::class, 'index'])->middleware(ApiLoggingMiddleware::class)->withoutNamespace()->make();
     
     // Single product endpoint - GET /products/{id}
     $router->get('/products/{id}', [ProductController::class, 'show'])->middleware(ApiLoggingMiddleware::class)->make();

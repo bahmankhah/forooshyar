@@ -138,6 +138,7 @@ $general_config = $config['general'] ?? [];
     border-radius: 4px;
     cursor: pointer;
     transition: all 0.2s ease;
+    color: #333;
 }
 
 .forooshyar-variable-item:hover {
@@ -148,7 +149,7 @@ $general_config = $config['general'] ?? [];
 
 .forooshyar-variable-item code {
     background: #1e73be;
-    color: white;
+    color: #fff;
     padding: 2px 6px;
     border-radius: 3px;
     margin-left: 8px;
@@ -159,7 +160,7 @@ $general_config = $config['general'] ?? [];
 
 .forooshyar-variable-item span {
     font-size: 12px;
-    color: #495057;
+    color: #333;
 }
 
 .forooshyar-template-preview {

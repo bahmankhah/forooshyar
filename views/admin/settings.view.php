@@ -130,7 +130,7 @@ if (!defined('ABSPATH')) {
 }
 
 .forooshyar-logo h2 {
-    color: white;
+    color: #1e73be;
     margin: 0 0 10px 0;
 }
 
@@ -142,12 +142,12 @@ if (!defined('ABSPATH')) {
 }
 
 .forooshyar-header-meta span {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(30, 115, 190, 0.1);
     padding: 5px 12px;
     border-radius: 15px;
     font-size: 12px;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #1e73be;
+    border: 1px solid rgba(30, 115, 190, 0.3);
 }
 
 .forooshyar-nav-tabs {
