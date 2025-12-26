@@ -51,7 +51,6 @@ class ProviderManager
             }
         });
 
-        
         foreach ($this->instances as $provider) {
             $provider->admin();
         }

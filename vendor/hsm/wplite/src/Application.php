@@ -86,7 +86,6 @@ class Application extends Container{
         load_env_file( App::pluginPath() . '.env' );
         Config::load();
         ProviderManager::loadProviders();
-
     }
     private function startOutputBuffer()
     {
