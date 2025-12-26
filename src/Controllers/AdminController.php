@@ -439,6 +439,17 @@ class AdminController extends Controller
                 'method' => 'GET',
                 'params' => ['page', 'limit', 'show_variations']
             ],
+            'products_torob' => [
+                'url' => rest_url('torob/products'),
+                'method' => 'GET',
+                'params' => ['page', 'limit', 'show_variations']
+            ],
+            'products_emalls' => [
+                'url' => rest_url('emalls/products'),
+                'method' => 'GET',
+                'params' => ['page', 'limit', 'show_variations']
+            ],
+            
             'product_by_id' => [
                 'url' => rest_url('forooshyar/v1/products/{id}'),
                 'method' => 'GET',
