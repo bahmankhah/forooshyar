@@ -792,17 +792,60 @@ class AnalysisJobManager
      */
     private function triggerAsyncProcessing()
     {
-        // استفاده از wp_remote_post برای ارسال درخواست غیرهمزمان
+        // روش 1: اجرای مستقیم cron
+        $this->spawnCron();
+        
+        // روش 2: استفاده از wp_remote_post برای ارسال درخواست غیرهمزمان
         $url = add_query_arg([
             'doing_wp_cron' => time(),
-            'aiagent_process' => 1,
         ], site_url('/wp-cron.php'));
         
         wp_remote_post($url, [
-            'timeout' => 0.01,
+            'timeout' => 0.5,
             'blocking' => false,
             'sslverify' => false,
+            'headers' => [
+                'Cache-Control' => 'no-cache',
+            ],
         ]);
+        
+        appLogger("[AIAgent] درخواست async برای اجرای cron ارسال شد");
+    }
+    
+    /**
+     * اجرای مستقیم cron بدون انتظار برای درخواست HTTP
+     *
+     * @return void
+     */
+    private function spawnCron()
+    {
+        // بررسی آیا cron در حال اجرا است
+        if (defined('DOING_CRON') && DOING_CRON) {
+            return;
+        }
+        
+        // اجرای مستقیم hook اگر امکان‌پذیر باشد
+        if (function_exists('spawn_cron')) {
+            spawn_cron();
+        }
+    }
+    
+    /**
+     * پردازش فوری بدون انتظار برای cron
+     * این متد می‌تواند از طریق AJAX فراخوانی شود
+     *
+     * @return void
+     */
+    public function processImmediately()
+    {
+        $jobState = $this->getJobState();
+        
+        if ($jobState['status'] !== self::STATUS_RUNNING) {
+            return;
+        }
+        
+        // اجرای مستقیم پردازش
+        $this->processNextBatch();
     }
 
     /**

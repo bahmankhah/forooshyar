@@ -881,6 +881,16 @@ class AIAgentModule
 
         try {
             $progress = $jobManager->getJobProgress();
+            
+            // اگر کار در حال اجرا است، پردازش را فوری انجام بده
+            // این کار اطمینان می‌دهد که حتی اگر cron کار نکند، پردازش ادامه یابد
+            if ($progress['is_running'] && !$progress['is_cancelling']) {
+                // پردازش یک batch در همین درخواست
+                $jobManager->processImmediately();
+                // دریافت پیشرفت به‌روز شده
+                $progress = $jobManager->getJobProgress();
+            }
+            
             wp_send_json_success($progress);
         } catch (\Exception $e) {
             appLogger("[AIAgent] Get progress error: " . $e->getMessage());
