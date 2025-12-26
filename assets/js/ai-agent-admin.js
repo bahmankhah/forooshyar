@@ -176,6 +176,7 @@
      */
     function processNextBatch() {
         isProcessing = true;
+        console.log('[AIAgent] شروع پردازش batch...');
         
         processingXhr = $.ajax({
             url: aiagentAdmin.ajaxUrl,
@@ -187,19 +188,23 @@
             },
             success: function(response) {
                 isProcessing = false;
+                console.log('[AIAgent] پاسخ batch دریافت شد:', response.data);
                 
                 if (response.success) {
                     updateProgressUI(response.data);
                     
                     var status = response.data.status;
                     if (status === 'completed' || status === 'failed' || status === 'cancelled') {
+                        console.log('[AIAgent] کار تمام شد با وضعیت:', status);
                         handleJobCompletion(response.data);
                     } else if (status === 'running') {
                         // ادامه پردازش با یک تأخیر کوتاه
+                        console.log('[AIAgent] ادامه پردازش batch بعدی...');
                         setTimeout(processNextBatch, 500);
                     }
                 } else {
                     // در صورت خطا، تلاش مجدد بعد از 5 ثانیه
+                    console.log('[AIAgent] خطا در پردازش batch، تلاش مجدد در 5 ثانیه...');
                     setTimeout(processNextBatch, 5000);
                 }
             },
@@ -208,11 +213,21 @@
                 
                 if (status === 'abort') {
                     // درخواست لغو شده، کاری نکن
+                    console.log('[AIAgent] درخواست لغو شد');
                     return;
                 }
                 
-                console.log('Process batch error:', status, error);
-                // تلاش مجدد بعد از 5 ثانیه
+                console.log('[AIAgent] خطای batch:', status, error);
+                
+                if (status === 'timeout') {
+                    // نمایش پیام به کاربر برای رفرش صفحه
+                    showNotice('warning', 'زمان درخواست به پایان رسید. لطفاً صفحه را رفرش کنید تا پردازش ادامه یابد.');
+                    alert('زمان درخواست پردازش به پایان رسید.\n\nلطفاً صفحه را رفرش کنید تا پردازش باقی‌مانده ادامه یابد.\n\nتحلیل‌های انجام شده ذخیره شده‌اند.');
+                    return; // توقف تلاش مجدد - کاربر باید رفرش کند
+                }
+                
+                // برای سایر خطاها، تلاش مجدد بعد از 5 ثانیه
+                console.log('[AIAgent] تلاش مجدد در 5 ثانیه...');
                 setTimeout(processNextBatch, 5000);
             }
         });
@@ -285,6 +300,7 @@
                 if (!response.success) return;
                 
                 var status = response.data.status;
+                console.log('[AIAgent] وضعیت فعلی کار:', status, response.data);
                 
                 // اگر کار تمام شده، لغو شده یا شکست خورده، وضعیت را پاک کن
                 if (status === 'completed' || status === 'failed' || status === 'cancelled') {
@@ -302,6 +318,7 @@
                 
                 // اگر کار در حال اجرا یا لغو است
                 if (status === 'running' || status === 'cancelling') {
+                    console.log('[AIAgent] کار در حال اجرا یافت شد، ادامه پردازش...');
                     $('#analysis-progress-section').show();
                     $('#cancel-analysis').show();
                     $('#run-analysis').hide();
@@ -312,6 +329,7 @@
                     
                     // ادامه پردازش
                     if (status === 'running') {
+                        console.log('[AIAgent] شروع مجدد حلقه پردازش...');
                         startProcessingLoop();
                     }
                     
@@ -586,9 +604,14 @@
      */
     function showNotice(type, message) {
         $('.aiagent-notice-temp').remove();
-        var $notice = $('<div class="notice notice-' + type + ' is-dismissible aiagent-notice-temp"><p>' + message + '</p></div>');
+        // Map warning to WordPress notice type
+        var noticeType = type === 'warning' ? 'warning' : type;
+        var $notice = $('<div class="notice notice-' + noticeType + ' is-dismissible aiagent-notice-temp"><p>' + message + '</p></div>');
         $('.wrap h1').first().after($notice);
-        setTimeout(function() { $notice.fadeOut(function() { $(this).remove(); }); }, 5000);
+        // Don't auto-hide warnings
+        if (type !== 'warning') {
+            setTimeout(function() { $notice.fadeOut(function() { $(this).remove(); }); }, 5000);
+        }
     }
 
 })(jQuery);

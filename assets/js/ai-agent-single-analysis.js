@@ -183,7 +183,10 @@
             'add_note': 'افزودن یادداشت',
             'update_stock': 'بروزرسانی موجودی',
             'create_bundle': 'ایجاد بسته',
-            'notify_admin': 'اطلاع‌رسانی به مدیر'
+            'notify_admin': 'اطلاع‌رسانی به مدیر',
+            'create_campaign': 'ایجاد کمپین بازاریابی',
+            'loyalty_reward': 'پاداش وفاداری',
+            'inventory_alert': 'هشدار موجودی'
         };
         return types[type] || type;
     }
