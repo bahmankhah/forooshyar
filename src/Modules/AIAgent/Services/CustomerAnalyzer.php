@@ -163,19 +163,35 @@ class CustomerAnalyzer implements AnalyzerInterface
      */
     public function getEntities($limit)
     {
-        $args = apply_filters('aiagent_customers_query', [
+        // Check if we should skip recently analyzed customers
+        $skipAnalyzedDays = $this->settings->get('analysis_skip_analyzed_days', 0);
+        $excludeIds = [];
+        
+        if ($skipAnalyzedDays > 0) {
+            $excludeIds = $this->database->getRecentlyAnalyzedEntityIds('customer', $skipAnalyzedDays);
+            appLogger("[AIAgent] Excluding " . count($excludeIds) . " recently analyzed customers (within {$skipAnalyzedDays} days)");
+        }
+
+        $args = [
             'role' => 'customer',
             'number' => $limit,
             'orderby' => 'registered',
             'order' => 'DESC',
             'fields' => ['ID'],
-        ]);
+        ];
+        
+        // Exclude recently analyzed customers
+        if (!empty($excludeIds)) {
+            $args['exclude'] = $excludeIds;
+        }
+        
+        $args = apply_filters('aiagent_customers_query', $args);
 
         appLogger("[AIAgent] Fetching customers with args: " . wp_json_encode($args));
 
         $users = get_users($args);
         
-        appLogger("[AIAgent] Found " . count($users) . " customers");
+        appLogger("[AIAgent] Found " . count($users) . " customers to analyze");
 
         $customers = [];
         foreach ($users as $user) {

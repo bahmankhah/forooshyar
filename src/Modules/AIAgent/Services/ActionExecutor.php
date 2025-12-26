@@ -166,20 +166,12 @@ class ActionExecutor
             ];
         }
 
-        // Check if action can be executed
-        if (!in_array($action['status'], ['pending', 'approved'])) {
+        // Check if action can be executed (allow pending, approved status)
+        // We removed the approval requirement - users can execute any action directly
+        if (!in_array($action['status'], ['pending', 'approved'], true)) {
             return [
                 'success' => false,
                 'message' => "Action cannot be executed (status: {$action['status']})",
-                'data' => null,
-            ];
-        }
-
-        // Check if requires approval
-        if ($action['requires_approval'] && $action['status'] !== 'approved') {
-            return [
-                'success' => false,
-                'message' => 'Action requires approval before execution',
                 'data' => null,
             ];
         }

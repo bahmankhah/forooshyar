@@ -333,9 +333,6 @@ class AIAgentService
         }
 
         $enabledActions = $this->settings->get('actions_enabled_types', []);
-        $requireApproval = $this->settings->get('actions_require_approval', []);
-        $autoExecuteThreshold = $this->settings->get('analysis_priority_threshold', 70);
-        $autoExecute = $this->settings->get('actions_auto_execute', false);
 
         $created = 0;
 
@@ -349,13 +346,6 @@ class AIAgentService
             }
 
             $priority = isset($suggestion['priority']) ? (int) $suggestion['priority'] : 50;
-            $needsApproval = \in_array($actionType, $requireApproval, true);
-
-            // Determine initial status
-            $status = 'pending';
-            if (!$needsApproval && $autoExecute && $priority >= $autoExecuteThreshold) {
-                $status = 'approved';
-            }
 
             // Include reasoning in action_data for display in dashboard
             $suggestionData = isset($suggestion['data']) ? $suggestion['data'] : [];
@@ -363,13 +353,15 @@ class AIAgentService
                 $suggestionData['reasoning'] = $suggestion['reasoning'];
             }
 
+            // All actions are created as 'pending' - no approval step needed
+            // Users can execute any pending action directly
             $actionData = [
                 'analysis_id' => isset($analysisResults['id']) ? $analysisResults['id'] : null,
                 'action_type' => $actionType,
                 'action_data' => $suggestionData,
-                'status' => $status,
+                'status' => 'pending',
                 'priority_score' => $priority,
-                'requires_approval' => $needsApproval ? 1 : 0,
+                'requires_approval' => 0,
                 'source_type' => $sourceType,
             ];
 
@@ -387,7 +379,7 @@ class AIAgentService
     }
 
     /**
-     * Execute approved actions
+     * Execute pending actions with high priority (auto-execute)
      *
      * @param int|null $limit
      * @return array
@@ -398,12 +390,20 @@ class AIAgentService
             $limit = $this->settings->get('actions_max_per_run', 10);
         }
 
-        $actions = $this->database->getActions(['status' => 'approved'], $limit);
+        $priorityThreshold = (int) $this->settings->get('analysis_priority_threshold', 70);
+        
+        // Get pending actions (not just approved, since we removed approval step)
+        $actions = $this->database->getActions(['status' => 'pending'], $limit);
 
         $executed = 0;
         $errors = [];
 
         foreach ($actions as $action) {
+            // Only auto-execute actions with high priority
+            if ($action['priority_score'] < $priorityThreshold) {
+                continue;
+            }
+            
             // Check action limit
             $usageLimit = $this->subscription->checkUsageLimit('actions_per_day');
             if ($usageLimit['remaining'] <= 0 && $usageLimit['allowed'] !== -1) {

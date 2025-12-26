@@ -613,7 +613,6 @@ class ActionSchedulerJobManager
         }
 
         $enabledActions = $this->settings->get('actions_enabled_types', []);
-        $requireApproval = $this->settings->get('actions_require_approval', []);
         $created = 0;
 
         foreach ($analysisResult['suggestions'] as $suggestion) {
@@ -624,7 +623,6 @@ class ActionSchedulerJobManager
             }
 
             $priority = (int) ($suggestion['priority'] ?? 50);
-            $needsApproval = in_array($actionType, $requireApproval, true);
 
             $suggestionData = $suggestion['data'] ?? [];
             
@@ -639,13 +637,15 @@ class ActionSchedulerJobManager
                 $suggestionData['entity_type'] = $analysisResult['entity_type'];
             }
 
+            // All actions are created as 'pending' - no approval step needed
+            // Users can execute any pending action directly
             $actionData = [
                 'analysis_id' => $analysisResult['id'] ?? null,
                 'action_type' => $actionType,
                 'action_data' => $suggestionData,
-                'status' => $needsApproval ? 'pending' : 'approved',
+                'status' => 'pending',
                 'priority_score' => $priority,
-                'requires_approval' => $needsApproval ? 1 : 0,
+                'requires_approval' => 0,
             ];
 
             $actionId = $this->database->saveAction($actionData);
@@ -658,7 +658,7 @@ class ActionSchedulerJobManager
     }
 
     /**
-     * Execute approved actions
+     * Execute pending actions with high priority (auto-execute)
      *
      * @return int
      */
@@ -671,8 +671,9 @@ class ActionSchedulerJobManager
         $limit = (int) $this->settings->get('actions_max_per_run', 10);
         $priorityThreshold = (int) $this->settings->get('analysis_priority_threshold', 70);
         
+        // Get pending actions (not just approved, since we removed approval step)
         $actions = $this->database->getActions([
-            'status' => 'approved',
+            'status' => 'pending',
         ], $limit, 0);
 
         $executed = 0;

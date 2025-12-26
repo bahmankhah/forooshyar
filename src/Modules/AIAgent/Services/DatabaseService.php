@@ -944,6 +944,31 @@ class DatabaseService
     }
 
     /**
+     * Get IDs of entities that were analyzed within the specified number of days
+     *
+     * @param string $entityType 'product' or 'customer'
+     * @param int $days Number of days to look back
+     * @return array Array of entity IDs
+     */
+    public function getRecentlyAnalyzedEntityIds($entityType, $days)
+    {
+        global $wpdb;
+
+        $dateThreshold = date('Y-m-d H:i:s', strtotime("-{$days} days"));
+
+        $results = $wpdb->get_col($wpdb->prepare(
+            "SELECT DISTINCT entity_id FROM {$this->analysisTable} 
+             WHERE entity_type = %s 
+             AND created_at >= %s 
+             AND entity_id > 0",
+            $entityType,
+            $dateThreshold
+        ));
+
+        return array_map('intval', $results);
+    }
+
+    /**
      * Get analyses count by type
      *
      * @return array

@@ -191,19 +191,35 @@ class ProductAnalyzer implements AnalyzerInterface
      */
     public function getEntities($limit)
     {
-        $args = apply_filters('aiagent_products_query', [
+        // Check if we should skip recently analyzed products
+        $skipAnalyzedDays = $this->settings->get('analysis_skip_analyzed_days', 0);
+        $excludeIds = [];
+        
+        if ($skipAnalyzedDays > 0) {
+            $excludeIds = $this->database->getRecentlyAnalyzedEntityIds('product', $skipAnalyzedDays);
+            appLogger("[AIAgent] Excluding " . count($excludeIds) . " recently analyzed products (within {$skipAnalyzedDays} days)");
+        }
+
+        $args = [
             'status' => 'publish',
             'limit' => $limit,
             'orderby' => 'date',
             'order' => 'DESC',
             'return' => 'ids',
-        ]);
+        ];
+        
+        // Exclude recently analyzed products
+        if (!empty($excludeIds)) {
+            $args['exclude'] = $excludeIds;
+        }
+        
+        $args = apply_filters('aiagent_products_query', $args);
 
         appLogger("[AIAgent] Fetching products with args: " . wp_json_encode($args));
 
         $productIds = wc_get_products($args);
         
-        appLogger("[AIAgent] Found " . count($productIds) . " products");
+        appLogger("[AIAgent] Found " . count($productIds) . " products to analyze");
 
         $products = [];
         foreach ($productIds as $id) {

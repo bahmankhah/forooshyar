@@ -294,6 +294,15 @@ return [
             'requires_feature' => 'sql_analysis',
             'description' => 'تحلیل پیشرفته با کوئری‌های SQL مستقیم',
         ],
+        'analysis_skip_analyzed_days' => [
+            'type' => 'number',
+            'default' => 0,
+            'min' => 0,
+            'max' => 30,
+            'label' => 'رد کردن موارد تحلیل شده (روز)',
+            'section' => 'analysis',
+            'description' => 'محصولات/مشتریانی که در این تعداد روز اخیر تحلیل شده‌اند را رد کن. 0 = غیرفعال',
+        ],
 
         // Action Settings
         'actions_auto_execute' => [

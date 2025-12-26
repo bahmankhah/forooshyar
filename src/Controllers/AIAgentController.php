@@ -303,9 +303,10 @@ class AIAgentController extends Controller
     }
 
     /**
-     * Approve an action
+     * Approve an action (legacy - now just executes the action directly)
      *
      * @return void
+     * @deprecated Use executeAction instead
      */
     public function approveAction(): void
     {
@@ -314,12 +315,16 @@ class AIAgentController extends Controller
         }
 
         $actionId = isset($_POST['action_id']) ? absint($_POST['action_id']) : 0;
-        $db = Container::resolve(DatabaseService::class);
+        $executor = Container::resolve(ActionExecutor::class);
 
         try {
-            $db->approveAction($actionId, get_current_user_id());
-            do_action('aiagent_action_approved', $actionId, get_current_user_id());
-            wp_send_json_success(['message' => __('اقدام تأیید شد', 'forooshyar')]);
+            // Since we removed the approval step, approving now just executes the action
+            $result = $executor->executeById($actionId);
+            if ($result['success']) {
+                wp_send_json_success(['message' => __('اقدام اجرا شد', 'forooshyar')]);
+            } else {
+                wp_send_json_error(['message' => $result['message'] ?? __('خطا در اجرای اقدام', 'forooshyar')], 500);
+            }
         } catch (\Exception $e) {
             wp_send_json_error(['message' => $e->getMessage()], 500);
         }
@@ -349,9 +354,10 @@ class AIAgentController extends Controller
     }
 
     /**
-     * Approve all pending actions
+     * Execute all pending actions (legacy approveAllActions - now executes directly)
      *
      * @return void
+     * @deprecated Use individual executeAction calls instead
      */
     public function approveAllActions(): void
     {
@@ -360,13 +366,27 @@ class AIAgentController extends Controller
         }
 
         $db = Container::resolve(DatabaseService::class);
+        $executor = Container::resolve(ActionExecutor::class);
 
         try {
-            $approved = $db->approveAllPendingActions(get_current_user_id());
-            do_action('aiagent_all_actions_approved', $approved, get_current_user_id());
+            // Get all pending actions and execute them
+            $actions = $db->getActions(['status' => 'pending'], 100);
+            $executed = 0;
+            $errors = [];
+            
+            foreach ($actions as $action) {
+                $result = $executor->executeById($action['id']);
+                if ($result['success']) {
+                    $executed++;
+                } else {
+                    $errors[] = $result['message'] ?? __('خطای ناشناخته', 'forooshyar');
+                }
+            }
+            
             wp_send_json_success([
-                'message' => sprintf(__('%d اقدام تأیید شد', 'forooshyar'), $approved),
-                'approved' => $approved
+                'message' => sprintf(__('%d اقدام اجرا شد', 'forooshyar'), $executed),
+                'executed' => $executed,
+                'errors' => $errors
             ]);
         } catch (\Exception $e) {
             wp_send_json_error(['message' => $e->getMessage()], 500);
