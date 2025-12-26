@@ -273,7 +273,8 @@ class AIAgentModule
                 Container::resolve(CustomerAnalyzer::class),
                 Container::resolve(SubscriptionManager::class),
                 Container::resolve(SettingsManager::class),
-                Container::resolve(DatabaseService::class)
+                Container::resolve(DatabaseService::class),
+                Container::resolve(ActionExecutor::class)
             );
         });
     }
@@ -420,6 +421,7 @@ class AIAgentModule
         add_action('wp_ajax_aiagent_run_analysis', [$this, 'ajaxRunAnalysis']); // Keep for backward compatibility
         add_action('wp_ajax_aiagent_execute_action', [$this, 'ajaxExecuteAction']);
         add_action('wp_ajax_aiagent_approve_action', [$this, 'ajaxApproveAction']);
+        add_action('wp_ajax_aiagent_dismiss_action', [$this, 'ajaxDismissAction']);
         add_action('wp_ajax_aiagent_get_stats', [$this, 'ajaxGetStats']);
         add_action('wp_ajax_aiagent_test_connection', [$this, 'ajaxTestConnection']);
     }
@@ -608,6 +610,31 @@ class AIAgentModule
             $db->approveAction($actionId, get_current_user_id());
             do_action('aiagent_action_approved', $actionId, get_current_user_id());
             wp_send_json_success(['message' => __('اقدام تأیید شد', 'forooshyar')]);
+        } catch (\Exception $e) {
+            wp_send_json_error(['message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * AJAX: Dismiss/reject an action
+     *
+     * @return void
+     */
+    public function ajaxDismissAction()
+    {
+        check_ajax_referer('aiagent_nonce', 'nonce');
+
+        if (!current_user_can('manage_woocommerce')) {
+            wp_send_json_error(['message' => __('دسترسی غیرمجاز', 'forooshyar')], 403);
+        }
+
+        $actionId = isset($_POST['action_id']) ? absint($_POST['action_id']) : 0;
+        $db = Container::resolve(DatabaseService::class);
+
+        try {
+            $db->updateActionStatus($actionId, 'cancelled');
+            do_action('aiagent_action_dismissed', $actionId, get_current_user_id());
+            wp_send_json_success(['message' => __('اقدام رد شد', 'forooshyar')]);
         } catch (\Exception $e) {
             wp_send_json_error(['message' => $e->getMessage()], 500);
         }

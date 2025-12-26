@@ -294,7 +294,7 @@ function aiagent_priority_class($score) {
 
         <?php elseif ($currentTab === 'pending'): ?>
         <!-- Pending Actions Tab -->
-        <h3 style="margin-top: 0;"><?php _e('اقدامات در انتظار تأیید و اجرا', 'forooshyar'); ?></h3>
+        <h3 style="margin-top: 0;"><?php _e('اقدامات در انتظار اجرا', 'forooshyar'); ?></h3>
         
         <?php if (!empty($actionsData['items'])): ?>
         <table class="wp-list-table widefat fixed striped">
@@ -302,11 +302,10 @@ function aiagent_priority_class($score) {
                 <tr>
                     <th style="width: 5%;"><?php _e('شناسه', 'forooshyar'); ?></th>
                     <th style="width: 15%;"><?php _e('نوع اقدام', 'forooshyar'); ?></th>
-                    <th style="width: 10%;"><?php _e('وضعیت', 'forooshyar'); ?></th>
                     <th style="width: 8%;"><?php _e('اولویت', 'forooshyar'); ?></th>
-                    <th style="width: 30%;"><?php _e('توضیحات هوش مصنوعی', 'forooshyar'); ?></th>
+                    <th style="width: 37%;"><?php _e('توضیحات هوش مصنوعی', 'forooshyar'); ?></th>
                     <th style="width: 15%;"><?php _e('تاریخ', 'forooshyar'); ?></th>
-                    <th style="width: 17%;"><?php _e('عملیات', 'forooshyar'); ?></th>
+                    <th style="width: 20%;"><?php _e('عملیات', 'forooshyar'); ?></th>
                 </tr>
             </thead>
             <tbody>
@@ -318,11 +317,6 @@ function aiagent_priority_class($score) {
                     <td><?php echo esc_html($action['id']); ?></td>
                     <td>
                         <strong><?php echo esc_html($actionTypeLabels[$action['action_type']] ?? $action['action_type']); ?></strong>
-                    </td>
-                    <td>
-                        <span style="display: inline-block; padding: 3px 8px; border-radius: 3px; font-size: 11px; background: <?php echo $statusColors[$action['status']] ?? '#ddd'; ?>; color: #fff;">
-                            <?php echo esc_html($statusLabels[$action['status']] ?? $action['status']); ?>
-                        </span>
                     </td>
                     <td>
                         <span class="priority-<?php echo aiagent_priority_class($action['priority_score']); ?>" style="font-weight: 600; padding: 3px 8px; border-radius: 3px; background: <?php echo $action['priority_score'] >= 70 ? '#ffeaea' : ($action['priority_score'] >= 50 ? '#fff3cd' : '#e8f5e9'); ?>;">
@@ -342,13 +336,11 @@ function aiagent_priority_class($score) {
                         <?php echo aiagent_format_date($action['created_at']); ?>
                     </td>
                     <td>
-                        <?php if ($action['status'] === 'pending'): ?>
-                        <button type="button" class="button button-small btn-approve-action" data-id="<?php echo esc_attr($action['id']); ?>">
-                            <?php _e('تأیید', 'forooshyar'); ?>
-                        </button>
-                        <?php endif; ?>
                         <button type="button" class="button button-small button-primary btn-execute-action" data-id="<?php echo esc_attr($action['id']); ?>">
                             <?php _e('اجرا', 'forooshyar'); ?>
+                        </button>
+                        <button type="button" class="button button-small btn-dismiss-action" data-id="<?php echo esc_attr($action['id']); ?>" style="color: #a00;">
+                            <?php _e('رد', 'forooshyar'); ?>
                         </button>
                     </td>
                 </tr>
@@ -388,7 +380,7 @@ function aiagent_priority_class($score) {
 
         <?php elseif ($currentTab === 'actions'): ?>
         <!-- All Actions Tab -->
-        <div style="margin-bottom: 15px;">
+        <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
             <form method="get" style="display: inline-flex; gap: 10px; align-items: center;">
                 <input type="hidden" name="page" value="forooshyar-ai-agent">
                 <input type="hidden" name="tab" value="actions">
@@ -447,13 +439,11 @@ function aiagent_priority_class($score) {
                     </td>
                     <td>
                         <?php if (in_array($action['status'], ['pending', 'approved'])): ?>
-                            <?php if ($action['status'] === 'pending'): ?>
-                            <button type="button" class="button button-small btn-approve-action" data-id="<?php echo esc_attr($action['id']); ?>">
-                                <?php _e('تأیید', 'forooshyar'); ?>
-                            </button>
-                            <?php endif; ?>
                             <button type="button" class="button button-small button-primary btn-execute-action" data-id="<?php echo esc_attr($action['id']); ?>">
                                 <?php _e('اجرا', 'forooshyar'); ?>
+                            </button>
+                            <button type="button" class="button button-small btn-dismiss-action" data-id="<?php echo esc_attr($action['id']); ?>" style="color: #a00;">
+                                <?php _e('رد', 'forooshyar'); ?>
                             </button>
                         <?php else: ?>
                             <span style="color: #999; font-size: 12px;">-</span>
@@ -944,12 +934,12 @@ jQuery(document).ready(function($) {
         });
     });
 
-    // Approve action
-    $(document).on('click', '.btn-approve-action', function() {
+    // Dismiss/Reject action
+    $(document).on('click', '.btn-dismiss-action', function() {
         var $btn = $(this);
         var actionId = $btn.data('id');
         
-        if (!confirm('<?php _e('آیا از تأیید این اقدام اطمینان دارید؟', 'forooshyar'); ?>')) return;
+        if (!confirm('<?php _e('آیا از رد این اقدام اطمینان دارید؟ این اقدام حذف خواهد شد.', 'forooshyar'); ?>')) return;
         
         $btn.addClass('loading').text('...');
         
@@ -957,21 +947,23 @@ jQuery(document).ready(function($) {
             url: aiagentAdmin.ajaxUrl,
             type: 'POST',
             data: {
-                action: 'aiagent_approve_action',
+                action: 'aiagent_dismiss_action',
                 nonce: aiagentAdmin.nonce,
                 action_id: actionId
             },
             success: function(response) {
                 if (response.success) {
-                    location.reload();
+                    $btn.closest('tr').fadeOut(300, function() {
+                        $(this).remove();
+                    });
                 } else {
                     alert(response.data.message || '<?php _e('خطا', 'forooshyar'); ?>');
-                    $btn.removeClass('loading').text('<?php _e('تأیید', 'forooshyar'); ?>');
+                    $btn.removeClass('loading').text('<?php _e('رد', 'forooshyar'); ?>');
                 }
             },
             error: function() {
                 alert('<?php _e('خطا در ارتباط با سرور', 'forooshyar'); ?>');
-                $btn.removeClass('loading').text('<?php _e('تأیید', 'forooshyar'); ?>');
+                $btn.removeClass('loading').text('<?php _e('رد', 'forooshyar'); ?>');
             }
         });
     });

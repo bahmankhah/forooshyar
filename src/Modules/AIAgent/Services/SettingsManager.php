@@ -218,6 +218,50 @@ class SettingsManager
                 );
                 break;
 
+            case 'action_types':
+                // Render unified action types table
+                $actionTypes = $this->getAllActionTypes();
+                echo '<div class="aiagent-action-types-table">';
+                echo '<table class="wp-list-table widefat fixed striped">';
+                echo '<thead><tr>';
+                echo '<th style="width: 30%;">' . esc_html__('نوع اقدام', 'forooshyar') . '</th>';
+                echo '<th style="width: 35%;">' . esc_html__('توضیحات', 'forooshyar') . '</th>';
+                echo '<th style="width: 15%; text-align: center;">' . esc_html__('فعال', 'forooshyar') . '</th>';
+                echo '<th style="width: 20%; text-align: center;">' . esc_html__('نیاز به تأیید', 'forooshyar') . '</th>';
+                echo '</tr></thead><tbody>';
+                
+                foreach ($actionTypes as $type => $typeConfig) {
+                    $enabledName = $fieldName . '[' . $type . '][enabled]';
+                    $approvalName = $fieldName . '[' . $type . '][requires_approval]';
+                    $enabledId = $fieldName . '_' . $type . '_enabled';
+                    $approvalId = $fieldName . '_' . $type . '_approval';
+                    
+                    echo '<tr>';
+                    echo '<td><strong>' . esc_html($typeConfig['label']) . '</strong></td>';
+                    echo '<td><span style="color: #666; font-size: 12px;">' . esc_html($typeConfig['description']) . '</span></td>';
+                    echo '<td style="text-align: center;">';
+                    printf(
+                        '<input type="checkbox" name="%s" id="%s" value="1" %s />',
+                        esc_attr($enabledName),
+                        esc_attr($enabledId),
+                        checked($typeConfig['enabled'], true, false)
+                    );
+                    echo '</td>';
+                    echo '<td style="text-align: center;">';
+                    printf(
+                        '<input type="checkbox" name="%s" id="%s" value="1" %s />',
+                        esc_attr($approvalName),
+                        esc_attr($approvalId),
+                        checked($typeConfig['requires_approval'], true, false)
+                    );
+                    echo '</td>';
+                    echo '</tr>';
+                }
+                
+                echo '</tbody></table>';
+                echo '</div>';
+                break;
+
             default:
                 printf(
                     '<input type="text" name="%s" id="%s" value="%s" class="regular-text" />',

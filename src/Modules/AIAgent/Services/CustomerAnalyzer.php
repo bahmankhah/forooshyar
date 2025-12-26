@@ -132,6 +132,8 @@ class CustomerAnalyzer implements AnalyzerInterface
         return [
             'success' => true,
             'id' => $analysisId,
+            'entity_id' => $entityId,
+            'entity_type' => 'customer',
             'analysis' => $parsed['analysis'],
             'suggestions' => $parsed['suggestions'],
             'priority_score' => $parsed['priority_score'],

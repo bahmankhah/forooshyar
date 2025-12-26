@@ -37,25 +37,31 @@ class AnalysisJobManager
     /** @var DatabaseService */
     private $database;
 
+    /** @var ActionExecutor|null */
+    private $actionExecutor;
+
     /**
      * @param ProductAnalyzer $productAnalyzer
      * @param CustomerAnalyzer $customerAnalyzer
      * @param SubscriptionManager $subscription
      * @param SettingsManager $settings
      * @param DatabaseService $database
+     * @param ActionExecutor|null $actionExecutor
      */
     public function __construct(
         ProductAnalyzer $productAnalyzer,
         CustomerAnalyzer $customerAnalyzer,
         SubscriptionManager $subscription,
         SettingsManager $settings,
-        DatabaseService $database
+        DatabaseService $database,
+        $actionExecutor = null
     ) {
         $this->productAnalyzer = $productAnalyzer;
         $this->customerAnalyzer = $customerAnalyzer;
         $this->subscription = $subscription;
         $this->settings = $settings;
         $this->database = $database;
+        $this->actionExecutor = $actionExecutor;
     }
 
     /**
@@ -275,10 +281,19 @@ class AnalysisJobManager
         if (empty($jobState['pending_products']) && empty($jobState['pending_customers'])) {
             $jobState['status'] = self::STATUS_COMPLETED;
             $jobState['completed_at'] = current_time('mysql');
-            $this->saveJobState($jobState);
             
             // Increment usage
             $this->subscription->incrementUsage('analyses_per_day');
+            
+            // Auto-execute approved actions if enabled
+            $actionsExecuted = 0;
+            if ($this->settings->get('actions_auto_execute', false) && $this->actionExecutor) {
+                $actionsExecuted = $this->executeApprovedActions();
+                $jobState['actions_executed'] = $actionsExecuted;
+                appLogger("[AIAgent] Auto-executed {$actionsExecuted} approved actions");
+            }
+            
+            $this->saveJobState($jobState);
             
             // Save analysis run record
             $this->database->saveAnalysisRun([
@@ -287,10 +302,11 @@ class AnalysisJobManager
                 'products_analyzed' => $jobState['products_success'],
                 'customers_analyzed' => $jobState['customers_success'],
                 'actions_created' => $jobState['actions_created'],
+                'actions_executed' => $actionsExecuted,
                 'duration_ms' => 0,
             ]);
             
-            appLogger("[AIAgent] Job completed: {$jobState['id']} - Products: {$jobState['products_success']}/{$jobState['products_total']}, Customers: {$jobState['customers_success']}/{$jobState['customers_total']}");
+            appLogger("[AIAgent] Job completed: {$jobState['id']} - Products: {$jobState['products_success']}/{$jobState['products_total']}, Customers: {$jobState['customers_success']}/{$jobState['customers_total']}, Actions executed: {$actionsExecuted}");
         } else {
             $this->saveJobState($jobState);
             // Schedule next batch
@@ -483,10 +499,18 @@ class AnalysisJobManager
             $priority = (int) ($suggestion['priority'] ?? 50);
             $needsApproval = \in_array($actionType, $requireApproval, true);
 
-            // Include reasoning in action_data for display in dashboard
+            // Include reasoning and entity info in action_data for display and deduplication
             $suggestionData = $suggestion['data'] ?? [];
             if (!empty($suggestion['reasoning'])) {
                 $suggestionData['reasoning'] = $suggestion['reasoning'];
+            }
+            
+            // Add entity info for deduplication
+            if (!empty($analysisResult['entity_id'])) {
+                $suggestionData['entity_id'] = $analysisResult['entity_id'];
+            }
+            if (!empty($analysisResult['entity_type'])) {
+                $suggestionData['entity_type'] = $analysisResult['entity_type'];
             }
 
             $actionData = [
@@ -509,5 +533,52 @@ class AnalysisJobManager
 
         appLogger("[AIAgent] Total actions created: {$created}");
         return $created;
+    }
+
+    /**
+     * Execute approved actions automatically
+     *
+     * @return int Number of actions executed
+     */
+    private function executeApprovedActions()
+    {
+        if (!$this->actionExecutor) {
+            appLogger("[AIAgent] ActionExecutor not available for auto-execute");
+            return 0;
+        }
+
+        $limit = (int) $this->settings->get('actions_max_per_run', 10);
+        $priorityThreshold = (int) $this->settings->get('analysis_priority_threshold', 70);
+        
+        // Get approved actions with high priority
+        $actions = $this->database->getActions([
+            'status' => 'approved',
+        ], $limit, 0);
+
+        $executed = 0;
+        $errors = [];
+
+        foreach ($actions as $action) {
+            // Only auto-execute high priority actions
+            if ($action['priority_score'] < $priorityThreshold) {
+                continue;
+            }
+
+            try {
+                $result = $this->actionExecutor->executeById($action['id']);
+                if ($result['success']) {
+                    $executed++;
+                    appLogger("[AIAgent] Auto-executed action #{$action['id']} ({$action['action_type']})");
+                } else {
+                    $errors[] = "Action #{$action['id']}: " . ($result['error'] ?? 'Unknown error');
+                    appLogger("[AIAgent] Failed to auto-execute action #{$action['id']}: " . ($result['error'] ?? 'Unknown error'));
+                }
+            } catch (\Exception $e) {
+                $errors[] = "Action #{$action['id']}: " . $e->getMessage();
+                appLogger("[AIAgent] Exception auto-executing action #{$action['id']}: " . $e->getMessage());
+            }
+        }
+
+        return $executed;
     }
 }

@@ -7,6 +7,8 @@
 
 namespace Forooshyar\Modules\AIAgent\Services;
 
+use function Forooshyar\WPLite\appLogger;
+
 class DatabaseService
 {
     /** @var string */
@@ -150,7 +152,7 @@ class DatabaseService
     }
 
     /**
-     * Save action
+     * Save action (with deduplication - removes older pending actions of same type for same entity)
      *
      * @param array $data
      * @return int|false Insert ID or false on failure
@@ -158,6 +160,31 @@ class DatabaseService
     public function saveAction(array $data)
     {
         global $wpdb;
+
+        // Extract entity info from action_data for deduplication
+        $actionData = isset($data['action_data']) ? $data['action_data'] : [];
+        $entityId = isset($actionData['entity_id']) ? $actionData['entity_id'] : null;
+        $entityType = isset($actionData['entity_type']) ? $actionData['entity_type'] : null;
+        
+        // If no entity info in action_data, try to get from product_id or customer_id
+        if (!$entityId) {
+            if (isset($actionData['product_id'])) {
+                $entityId = $actionData['product_id'];
+                $entityType = 'product';
+            } elseif (isset($actionData['customer_id'])) {
+                $entityId = $actionData['customer_id'];
+                $entityType = 'customer';
+            }
+        }
+
+        // Remove duplicate pending/approved actions for same entity and action type
+        if ($entityId && $entityType) {
+            $this->removeDuplicatePendingActions(
+                $data['action_type'],
+                $entityId,
+                $entityType
+            );
+        }
 
         $result = $wpdb->insert(
             $this->actionsTable,
@@ -173,6 +200,59 @@ class DatabaseService
         );
 
         return $result ? $wpdb->insert_id : false;
+    }
+
+    /**
+     * Remove duplicate pending/approved actions for same entity and action type
+     * This ensures only the newest action suggestion is kept
+     *
+     * @param string $actionType
+     * @param int $entityId
+     * @param string $entityType
+     * @return int Number of deleted rows
+     */
+    public function removeDuplicatePendingActions($actionType, $entityId, $entityType)
+    {
+        global $wpdb;
+
+        // Build JSON patterns to match entity in action_data
+        // We need to match actions that have this entity_id/entity_type OR product_id/customer_id
+        $patterns = [];
+        
+        if ($entityType === 'product') {
+            $patterns[] = $wpdb->prepare(
+                "(action_data LIKE %s OR action_data LIKE %s)",
+                '%"entity_id":' . $entityId . '%',
+                '%"product_id":' . $entityId . '%'
+            );
+        } elseif ($entityType === 'customer') {
+            $patterns[] = $wpdb->prepare(
+                "(action_data LIKE %s OR action_data LIKE %s)",
+                '%"entity_id":' . $entityId . '%',
+                '%"customer_id":' . $entityId . '%'
+            );
+        }
+
+        if (empty($patterns)) {
+            return 0;
+        }
+
+        $patternClause = implode(' OR ', $patterns);
+
+        // Delete pending or approved actions of same type for same entity
+        $deleted = $wpdb->query($wpdb->prepare(
+            "DELETE FROM {$this->actionsTable} 
+             WHERE action_type = %s 
+             AND status IN ('pending', 'approved')
+             AND ({$patternClause})",
+            $actionType
+        ));
+
+        if ($deleted > 0) {
+            appLogger("[AIAgent] Removed {$deleted} duplicate pending action(s) for {$entityType} #{$entityId}, type: {$actionType}");
+        }
+
+        return $deleted ? $deleted : 0;
     }
 
     /**
