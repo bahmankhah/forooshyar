@@ -14,6 +14,8 @@
 
 namespace Forooshyar\Modules\AIAgent\Services;
 
+use function Forooshyar\WPLite\appConfig;
+
 class SettingsManager
 {
     const SETTINGS_GROUP = 'aiagent_settings';

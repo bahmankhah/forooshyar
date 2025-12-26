@@ -433,6 +433,30 @@ function aiagent_priority_class($score) {
                 </select>
                 <button type="submit" class="button"><?php _e('فیلتر', 'forooshyar'); ?></button>
             </form>
+            <?php 
+            // Show bulk buttons only when viewing pending/approved or all actions
+            $hasPendingActions = false;
+            if (!empty($actionsData['items'])) {
+                foreach ($actionsData['items'] as $a) {
+                    if (in_array($a['status'], ['pending', 'approved'])) {
+                        $hasPendingActions = true;
+                        break;
+                    }
+                }
+            }
+            if ($hasPendingActions): 
+            ?>
+            <div style="display: flex; gap: 10px;">
+                <button type="button" class="button button-primary" id="btn-approve-all-actions">
+                    <span class="dashicons dashicons-yes" style="vertical-align: middle;"></span>
+                    <?php _e('تأیید همه در انتظار', 'forooshyar'); ?>
+                </button>
+                <button type="button" class="button" id="btn-dismiss-all-actions" style="color: #a00;">
+                    <span class="dashicons dashicons-no" style="vertical-align: middle;"></span>
+                    <?php _e('حذف همه در انتظار', 'forooshyar'); ?>
+                </button>
+            </div>
+            <?php endif; ?>
         </div>
 
         <?php if (!empty($actionsData['items'])): ?>
@@ -1093,6 +1117,66 @@ jQuery(document).ready(function($) {
             error: function() {
                 alert('<?php _e('خطا در ارتباط با سرور', 'forooshyar'); ?>');
                 $btn.prop('disabled', false).html('<span class="dashicons dashicons-no" style="vertical-align: middle;"></span> <?php _e('حذف همه', 'forooshyar'); ?>');
+            }
+        });
+    });
+
+    // Approve all actions (from All Actions tab)
+    $('#btn-approve-all-actions').on('click', function() {
+        if (!confirm('<?php _e('آیا از تأیید همه اقدامات در انتظار اطمینان دارید؟', 'forooshyar'); ?>')) return;
+        
+        var $btn = $(this);
+        $btn.prop('disabled', true).text('<?php _e('در حال تأیید...', 'forooshyar'); ?>');
+        
+        $.ajax({
+            url: aiagentAdmin.ajaxUrl,
+            type: 'POST',
+            data: {
+                action: 'aiagent_approve_all_actions',
+                nonce: aiagentAdmin.nonce
+            },
+            success: function(response) {
+                if (response.success) {
+                    alert(response.data.message);
+                    location.reload();
+                } else {
+                    alert(response.data.message || '<?php _e('خطا', 'forooshyar'); ?>');
+                    $btn.prop('disabled', false).html('<span class="dashicons dashicons-yes" style="vertical-align: middle;"></span> <?php _e('تأیید همه در انتظار', 'forooshyar'); ?>');
+                }
+            },
+            error: function() {
+                alert('<?php _e('خطا در ارتباط با سرور', 'forooshyar'); ?>');
+                $btn.prop('disabled', false).html('<span class="dashicons dashicons-yes" style="vertical-align: middle;"></span> <?php _e('تأیید همه در انتظار', 'forooshyar'); ?>');
+            }
+        });
+    });
+
+    // Dismiss all actions (from All Actions tab)
+    $('#btn-dismiss-all-actions').on('click', function() {
+        if (!confirm('<?php _e('آیا از حذف همه اقدامات در انتظار اطمینان دارید؟ این عمل قابل بازگشت نیست.', 'forooshyar'); ?>')) return;
+        
+        var $btn = $(this);
+        $btn.prop('disabled', true).text('<?php _e('در حال حذف...', 'forooshyar'); ?>');
+        
+        $.ajax({
+            url: aiagentAdmin.ajaxUrl,
+            type: 'POST',
+            data: {
+                action: 'aiagent_dismiss_all_actions',
+                nonce: aiagentAdmin.nonce
+            },
+            success: function(response) {
+                if (response.success) {
+                    alert(response.data.message);
+                    location.reload();
+                } else {
+                    alert(response.data.message || '<?php _e('خطا', 'forooshyar'); ?>');
+                    $btn.prop('disabled', false).html('<span class="dashicons dashicons-no" style="vertical-align: middle;"></span> <?php _e('حذف همه در انتظار', 'forooshyar'); ?>');
+                }
+            },
+            error: function() {
+                alert('<?php _e('خطا در ارتباط با سرور', 'forooshyar'); ?>');
+                $btn.prop('disabled', false).html('<span class="dashicons dashicons-no" style="vertical-align: middle;"></span> <?php _e('حذف همه در انتظار', 'forooshyar'); ?>');
             }
         });
     });

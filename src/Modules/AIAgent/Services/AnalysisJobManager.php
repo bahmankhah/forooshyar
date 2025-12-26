@@ -505,8 +505,13 @@ class AnalysisJobManager
 
             // Include reasoning and entity info in action_data for display and deduplication
             $suggestionData = $suggestion['data'] ?? [];
+            
+            // Copy reasoning from suggestion to action_data
             if (!empty($suggestion['reasoning'])) {
                 $suggestionData['reasoning'] = $suggestion['reasoning'];
+                appLogger("[AIAgent] Copying reasoning to action_data: " . substr($suggestion['reasoning'], 0, 100));
+            } else {
+                appLogger("[AIAgent] No reasoning found in suggestion for type: {$actionType}");
             }
             
             // Add entity info for deduplication
@@ -515,6 +520,14 @@ class AnalysisJobManager
             }
             if (!empty($analysisResult['entity_type'])) {
                 $suggestionData['entity_type'] = $analysisResult['entity_type'];
+            }
+            
+            // Also try to get product_id or customer_id from suggestion data
+            if (!empty($suggestion['data']['product_id'])) {
+                $suggestionData['product_id'] = $suggestion['data']['product_id'];
+            }
+            if (!empty($suggestion['data']['customer_id'])) {
+                $suggestionData['customer_id'] = $suggestion['data']['customer_id'];
             }
 
             $actionData = [
