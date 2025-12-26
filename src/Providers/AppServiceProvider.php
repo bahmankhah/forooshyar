@@ -58,8 +58,7 @@ class AppServiceProvider extends Provider
             );
             appLogger('Forooshyar: Text domain loaded successfully');
                    
-            // Register AI Agent Module
-            $this->registerAIAgentModule();
+
             // Set Persian locale if not already set - moved to init hook
             add_action('init', function() {
                 appLogger('Forooshyar: init hook - Setting up Persian locale features');
@@ -86,6 +85,8 @@ class AppServiceProvider extends Provider
                 }
             });
         });
+        // Register AI Agent Module
+        $this->registerAIAgentModule();
         
         // Register admin menu - moved from admin() method to ensure translations are loaded
         add_action('admin_menu', function() {
