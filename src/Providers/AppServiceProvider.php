@@ -23,9 +23,7 @@ class AppServiceProvider extends Provider
     private $aiAgentModule = null;
 
     public function register() {
-        
-        // Register AI Agent Module
-        $this->registerAIAgentModule();
+ 
     }
     
     /**
@@ -59,7 +57,9 @@ class AppServiceProvider extends Provider
                 dirname(plugin_basename(dirname(dirname(__DIR__)))) . '/languages'
             );
             appLogger('Forooshyar: Text domain loaded successfully');
-            
+                   
+            // Register AI Agent Module
+            $this->registerAIAgentModule();
             // Set Persian locale if not already set - moved to init hook
             add_action('init', function() {
                 appLogger('Forooshyar: init hook - Setting up Persian locale features');
