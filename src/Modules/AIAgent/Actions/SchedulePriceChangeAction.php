@@ -7,19 +7,19 @@
 
 namespace Forooshyar\Modules\AIAgent\Actions;
 
+use Forooshyar\WPLite\Container;
+use Forooshyar\Modules\AIAgent\Services\ScheduledTaskService;
+
 class SchedulePriceChangeAction extends AbstractAction
 {
     protected $type = 'schedule_price_change';
     protected $name = 'Schedule Price Change';
     protected $description = 'Schedule future price change for product';
     protected $requiredFields = [];
-    protected $optionalFields = ['product_id', 'entity_id', 'entity_type', 'new_price', 'schedule_time', 'change_date', 'change_reason', 'revert_time', 'reason'];
+    protected $optionalFields = ['product_id', 'entity_id', 'entity_type', 'new_price', 'schedule_time', 'change_date', 'change_reason', 'revert_time', 'revert_price', 'reason'];
 
     public function execute(array $data)
     {
-        global $wpdb;
-        $table = $wpdb->prefix . 'aiagent_scheduled';
-
         // Support both product_id and entity_id
         $productId = $this->getField($data, 'product_id');
         if (!$productId) {
@@ -34,7 +34,7 @@ class SchedulePriceChangeAction extends AbstractAction
             return $this->error(__('شناسه محصول یافت نشد', 'forooshyar'));
         }
         
-        $productId = absint($productId);
+        $productId = \absint($productId);
         $product = wc_get_product($productId);
 
         if (!$product) {
@@ -54,29 +54,44 @@ class SchedulePriceChangeAction extends AbstractAction
         }
         
         $reason = $this->getField($data, 'change_reason', $this->getField($data, 'reason', ''));
+        
+        // Get revert settings
+        $revertPrice = $this->getField($data, 'revert_price');
+        $revertTime = $this->getField($data, 'revert_time');
+        
+        // If no revert price specified but revert time is, use current price
+        if ($revertTime && !$revertPrice) {
+            $revertPrice = $product->get_regular_price();
+        }
 
-        $taskData = [
-            'product_id' => $productId,
-            'current_price' => $product->get_regular_price(),
-            'new_price' => floatval($newPrice),
-            'revert_time' => $this->getField($data, 'revert_time'),
-            'reason' => sanitize_text_field($reason),
-        ];
+        // Use ScheduledTaskService
+        $scheduledTaskService = Container::resolve(ScheduledTaskService::class);
+        
+        $taskId = $scheduledTaskService->schedulePriceChange(
+            $productId,
+            \floatval($newPrice),
+            $scheduleTime,
+            $revertPrice ? \floatval($revertPrice) : null,
+            $revertTime,
+            sanitize_text_field($reason)
+        );
 
-        $result = $wpdb->insert($table, [
-            'task_type' => 'price_change',
-            'task_data' => wp_json_encode($taskData),
-            'scheduled_at' => $scheduleTime,
-            'status' => 'pending',
-        ], ['%s', '%s', '%s', '%s']);
-
-        if ($result) {
-            return $this->success(__('تغییر قیمت زمان‌بندی شد', 'forooshyar'), [
-                'id' => $wpdb->insert_id,
+        if ($taskId) {
+            $result = [
+                'task_id' => $taskId,
                 'product_id' => $productId,
-                'new_price' => floatval($newPrice),
+                'product_name' => $product->get_name(),
+                'current_price' => $product->get_regular_price(),
+                'new_price' => \floatval($newPrice),
                 'scheduled_at' => $scheduleTime,
-            ]);
+            ];
+            
+            if ($revertTime) {
+                $result['revert_price'] = $revertPrice;
+                $result['revert_at'] = $revertTime;
+            }
+            
+            return $this->success(__('تغییر قیمت زمان‌بندی شد', 'forooshyar'), $result);
         }
 
         return $this->error(__('خطا در زمان‌بندی تغییر قیمت', 'forooshyar'));
@@ -101,7 +116,7 @@ class SchedulePriceChangeAction extends AbstractAction
         }
         
         $newPrice = $this->getField($data, 'new_price');
-        if (!$newPrice || floatval($newPrice) <= 0) {
+        if (!$newPrice || \floatval($newPrice) <= 0) {
             $errors[] = __('قیمت جدید الزامی است و باید بیشتر از صفر باشد', 'forooshyar');
         }
         

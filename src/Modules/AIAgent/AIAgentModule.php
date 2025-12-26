@@ -20,6 +20,8 @@ use Forooshyar\Modules\AIAgent\Services\CustomerAnalyzer;
 use Forooshyar\Modules\AIAgent\Services\Logger;
 use Forooshyar\Modules\AIAgent\Services\NotificationService;
 use Forooshyar\Modules\AIAgent\Services\AnalysisJobManager;
+use Forooshyar\Modules\AIAgent\Services\ContextManager;
+use Forooshyar\Modules\AIAgent\Services\ScheduledTaskService;
 use Forooshyar\Modules\AIAgent\Services\LLM\LLMFactory;
 use Forooshyar\Modules\AIAgent\Admin\AIAgentAdminController;
 use Forooshyar\Modules\AIAgent\Admin\SettingsController;
@@ -80,6 +82,8 @@ class AIAgentModule
         $this->registerHooks();
         $this->registerCommands();
         $this->initializeNotifications();
+        $this->initializeContextManager();
+        $this->initializeScheduledTasks();
 
         $this->booted = true;
 
@@ -132,7 +136,31 @@ class AIAgentModule
             $stats = $service->getStatistics(1);
             $notification->sendDailySummary($stats);
         });
-    }    /**
+    }
+
+    /**
+     * Initialize context manager with default prompts
+     *
+     * @return void
+     */
+    private function initializeContextManager()
+    {
+        $contextManager = Container::resolve(ContextManager::class);
+        $contextManager->initializeDefaults();
+    }
+
+    /**
+     * Initialize scheduled task service
+     *
+     * @return void
+     */
+    private function initializeScheduledTasks()
+    {
+        $scheduledTaskService = Container::resolve(ScheduledTaskService::class);
+        $scheduledTaskService->register();
+    }
+
+    /**
      * Load module configuration from appConfig
      *
      * @return void
@@ -275,6 +303,20 @@ class AIAgentModule
                 Container::resolve(SettingsManager::class),
                 Container::resolve(DatabaseService::class),
                 Container::resolve(ActionExecutor::class)
+            );
+        });
+
+        // Context Manager - مدیریت پرامپت‌ها و قالب‌ها
+        Container::bind(ContextManager::class, function () {
+            return new ContextManager();
+        });
+
+        // Scheduled Task Service - مدیریت وظایف زمان‌بندی شده
+        Container::bind(ScheduledTaskService::class, function () {
+            return new ScheduledTaskService(
+                Container::resolve(ActionExecutor::class),
+                Container::resolve(SettingsManager::class),
+                Container::resolve(Logger::class)
             );
         });
     }
@@ -449,8 +491,21 @@ class AIAgentModule
     {
         $schedules['twice_daily'] = [
             'interval' => 12 * HOUR_IN_SECONDS,
-            'display' => __('Twice Daily', 'forooshyar')
+            'display' => __('دو بار در روز', 'forooshyar')
         ];
+        
+        // اضافه کردن بازه هر دقیقه برای heartbeat
+        $schedules['every_minute'] = [
+            'interval' => 60,
+            'display' => __('هر دقیقه', 'forooshyar')
+        ];
+        
+        // اضافه کردن بازه هر 30 ثانیه برای پردازش سریع‌تر
+        $schedules['every_30_seconds'] = [
+            'interval' => 30,
+            'display' => __('هر 30 ثانیه', 'forooshyar')
+        ];
+        
         return $schedules;
     }
 

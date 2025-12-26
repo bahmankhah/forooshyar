@@ -2,21 +2,26 @@
 /**
  * Analysis Job Manager
  * 
- * Manages async analysis jobs with progress tracking and cancellation support.
+ * مدیریت کارهای تحلیل به صورت پایدار با ذخیره‌سازی در دیتابیس
+ * این سیستم از WordPress Cron و Heartbeat API برای اطمینان از ادامه کار استفاده می‌کند
  * 
  * @package Forooshyar\Modules\AIAgent\Services
  */
 
 namespace Forooshyar\Modules\AIAgent\Services;
+
 use function Forooshyar\WPLite\appLogger;
 
 class AnalysisJobManager
 {
     const OPTION_JOB_STATE = 'aiagent_analysis_job';
     const CRON_HOOK = 'aiagent_process_analysis_job';
+    const HEARTBEAT_HOOK = 'aiagent_job_heartbeat';
+    const JOB_TABLE = 'aiagent_jobs';
     
     const STATUS_IDLE = 'idle';
     const STATUS_RUNNING = 'running';
+    const STATUS_PAUSED = 'paused';
     const STATUS_CANCELLING = 'cancelling';
     const STATUS_COMPLETED = 'completed';
     const STATUS_FAILED = 'failed';
@@ -40,6 +45,12 @@ class AnalysisJobManager
     /** @var ActionExecutor|null */
     private $actionExecutor;
 
+    /** @var int حداکثر زمان اجرای یک batch (ثانیه) */
+    const MAX_BATCH_EXECUTION_TIME = 25;
+    
+    /** @var int حداکثر زمان بدون فعالیت قبل از تلقی به عنوان متوقف شده (ثانیه) */
+    const STALE_JOB_THRESHOLD = 120;
+
     /**
      * @param ProductAnalyzer $productAnalyzer
      * @param CustomerAnalyzer $customerAnalyzer
@@ -62,26 +73,121 @@ class AnalysisJobManager
         $this->settings = $settings;
         $this->database = $database;
         $this->actionExecutor = $actionExecutor;
+        
+        // ثبت هوک‌های WordPress
+        $this->registerHooks();
     }
 
     /**
-     * Start a new analysis job
+     * ثبت هوک‌های WordPress برای پردازش پس‌زمینه
      *
-     * @param string $type 'all', 'products', or 'customers'
+     * @return void
+     */
+    private function registerHooks()
+    {
+        // هوک اصلی پردازش
+        add_action(self::CRON_HOOK, [$this, 'processNextBatch']);
+        
+        // هوک Heartbeat برای بررسی وضعیت کار
+        add_action(self::HEARTBEAT_HOOK, [$this, 'checkAndResumeJob']);
+        
+        // اضافه کردن به Heartbeat API وردپرس
+        add_filter('heartbeat_received', [$this, 'handleHeartbeat'], 10, 2);
+        add_filter('heartbeat_nopriv_received', [$this, 'handleHeartbeat'], 10, 2);
+    }
+
+    /**
+     * پاسخ به Heartbeat API وردپرس
+     * این متد اطمینان می‌دهد که کار در حال اجرا ادامه پیدا کند
+     *
+     * @param array $response
+     * @param array $data
+     * @return array
+     */
+    public function handleHeartbeat($response, $data)
+    {
+        if (!empty($data['aiagent_check_job'])) {
+            $jobState = $this->getJobState();
+            
+            // اگر کار در حال اجرا است، آن را ادامه بده
+            if ($jobState['status'] === self::STATUS_RUNNING) {
+                $this->ensureJobIsProcessing();
+                $response['aiagent_job_status'] = $this->getJobProgress();
+            }
+        }
+        
+        return $response;
+    }
+
+    /**
+     * بررسی و ادامه کار متوقف شده
+     *
+     * @return void
+     */
+    public function checkAndResumeJob()
+    {
+        $jobState = $this->getJobState();
+        
+        if ($jobState['status'] !== self::STATUS_RUNNING) {
+            return;
+        }
+        
+        // بررسی آیا کار متوقف شده است
+        $lastUpdate = strtotime($jobState['updated_at']);
+        $now = time();
+        
+        if (($now - $lastUpdate) > self::STALE_JOB_THRESHOLD) {
+            appLogger("[AIAgent] کار متوقف شده تشخیص داده شد، در حال ادامه...");
+            $this->scheduleProcessing();
+        }
+    }
+
+    /**
+     * اطمینان از اینکه کار در حال پردازش است
+     *
+     * @return void
+     */
+    private function ensureJobIsProcessing()
+    {
+        $jobState = $this->getJobState();
+        
+        if ($jobState['status'] !== self::STATUS_RUNNING) {
+            return;
+        }
+        
+        // بررسی آیا cron زمان‌بندی شده است
+        if (!wp_next_scheduled(self::CRON_HOOK)) {
+            $this->scheduleProcessing();
+        }
+    }
+
+    /**
+     * شروع یک کار تحلیل جدید
+     *
+     * @param string $type 'all', 'products', یا 'customers'
      * @return array
      */
     public function startJob($type = 'all')
     {
-        // Check if job is already running
+        // بررسی آیا کاری در حال اجرا است
         $currentJob = $this->getJobState();
         if ($currentJob['status'] === self::STATUS_RUNNING) {
-            return [
-                'success' => false,
-                'error' => __('یک تحلیل در حال اجرا است. لطفاً صبر کنید یا آن را لغو کنید.', 'forooshyar'),
-            ];
+            // بررسی آیا کار قدیمی متوقف شده است
+            $lastUpdate = strtotime($currentJob['updated_at']);
+            $now = time();
+            
+            if (($now - $lastUpdate) > self::STALE_JOB_THRESHOLD) {
+                appLogger("[AIAgent] کار قدیمی متوقف شده، در حال بازنشانی...");
+                $this->resetJobState();
+            } else {
+                return [
+                    'success' => false,
+                    'error' => __('یک تحلیل در حال اجرا است. لطفاً صبر کنید یا آن را لغو کنید.', 'forooshyar'),
+                ];
+            }
         }
 
-        // Check subscription
+        // بررسی اشتراک
         if (!$this->subscription->isModuleEnabled()) {
             return [
                 'success' => false,
@@ -89,11 +195,10 @@ class AnalysisJobManager
             ];
         }
 
-        // Check analysis type settings - default to true if not set
+        // بررسی تنظیمات نوع تحلیل
         $includeProducts = $this->settings->get('analysis_include_products');
         $includeCustomers = $this->settings->get('analysis_include_customers');
         
-        // Default to true if settings are not explicitly set
         if ($includeProducts === null || $includeProducts === '') {
             $includeProducts = true;
         } else {
@@ -106,9 +211,9 @@ class AnalysisJobManager
             $includeCustomers = (bool) $includeCustomers;
         }
         
-        appLogger("[AIAgent] Analysis settings - includeProducts: " . ($includeProducts ? 'yes' : 'no') . ", includeCustomers: " . ($includeCustomers ? 'yes' : 'no'));
+        appLogger("[AIAgent] تنظیمات تحلیل - محصولات: " . ($includeProducts ? 'بله' : 'خیر') . "، مشتریان: " . ($includeCustomers ? 'بله' : 'خیر'));
 
-        // Get entities to analyze
+        // دریافت موجودیت‌ها برای تحلیل
         $products = [];
         $customers = [];
 
@@ -118,9 +223,9 @@ class AnalysisJobManager
                 if (!$limit || $limit <= 0) {
                     $limit = 50;
                 }
-                appLogger("[AIAgent] Fetching products with limit: {$limit}");
+                appLogger("[AIAgent] دریافت محصولات با محدودیت: {$limit}");
                 $products = $this->productAnalyzer->getEntities($limit);
-                appLogger("[AIAgent] Got " . count($products) . " products");
+                appLogger("[AIAgent] تعداد محصولات: " . count($products));
             }
         }
 
@@ -130,15 +235,15 @@ class AnalysisJobManager
                 if (!$limit || $limit <= 0) {
                     $limit = 100;
                 }
-                appLogger("[AIAgent] Fetching customers with limit: {$limit}");
+                appLogger("[AIAgent] دریافت مشتریان با محدودیت: {$limit}");
                 $customers = $this->customerAnalyzer->getEntities($limit);
-                appLogger("[AIAgent] Got " . count($customers) . " customers");
+                appLogger("[AIAgent] تعداد مشتریان: " . count($customers));
             }
         }
 
         $totalItems = count($products) + count($customers);
         
-        appLogger("[AIAgent] Total items to analyze: {$totalItems} (products: " . count($products) . ", customers: " . count($customers) . ")");
+        appLogger("[AIAgent] مجموع موارد برای تحلیل: {$totalItems}");
         
         if ($totalItems === 0) {
             $reasons = [];
@@ -163,7 +268,7 @@ class AnalysisJobManager
             ];
         }
 
-        // Create job state
+        // ایجاد وضعیت کار
         $jobId = uniqid('job_', true);
         $jobState = [
             'id' => $jobId,
@@ -171,6 +276,7 @@ class AnalysisJobManager
             'type' => $type,
             'started_at' => current_time('mysql'),
             'updated_at' => current_time('mysql'),
+            'last_heartbeat' => time(),
             'products_total' => count($products),
             'products_processed' => 0,
             'products_success' => 0,
@@ -187,11 +293,17 @@ class AnalysisJobManager
         ];
 
         $this->saveJobState($jobState);
+        
+        // ذخیره در جدول scheduled برای پایداری بیشتر
+        $this->saveJobToDatabase($jobState);
 
-        // Schedule immediate processing
+        // زمان‌بندی پردازش فوری
         $this->scheduleProcessing();
+        
+        // زمان‌بندی heartbeat برای بررسی دوره‌ای
+        $this->scheduleHeartbeat();
 
-        appLogger("[AIAgent] Job started: {$jobId} - Products: " . count($products) . ", Customers: " . count($customers));
+        appLogger("[AIAgent] کار شروع شد: {$jobId} - محصولات: " . count($products) . "، مشتریان: " . count($customers));
 
         return [
             'success' => true,
@@ -204,43 +316,110 @@ class AnalysisJobManager
     }
 
     /**
-     * Process the next batch of items
+     * ذخیره کار در جدول دیتابیس برای پایداری
+     *
+     * @param array $jobState
+     * @return int|false
+     */
+    private function saveJobToDatabase(array $jobState)
+    {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aiagent_scheduled';
+        
+        // حذف کارهای قبلی با همین نوع
+        $wpdb->delete($table, [
+            'task_type' => 'analysis_job',
+            'status' => 'pending',
+        ]);
+        
+        return $wpdb->insert($table, [
+            'task_type' => 'analysis_job',
+            'task_data' => wp_json_encode($jobState),
+            'scheduled_at' => current_time('mysql'),
+            'status' => 'pending',
+        ], ['%s', '%s', '%s', '%s']);
+    }
+
+    /**
+     * بروزرسانی کار در دیتابیس
+     *
+     * @param array $jobState
+     * @return void
+     */
+    private function updateJobInDatabase(array $jobState)
+    {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aiagent_scheduled';
+        
+        $wpdb->update(
+            $table,
+            [
+                'task_data' => wp_json_encode($jobState),
+                'status' => $jobState['status'] === self::STATUS_RUNNING ? 'pending' : $jobState['status'],
+            ],
+            [
+                'task_type' => 'analysis_job',
+                'status' => 'pending',
+            ],
+            ['%s', '%s'],
+            ['%s', '%s']
+        );
+    }
+
+    /**
+     * پردازش دسته بعدی موارد
      *
      * @return void
      */
     public function processNextBatch()
     {
+        $startTime = time();
         $jobState = $this->getJobState();
 
-        // Check if job should continue
+        // بررسی آیا کار باید ادامه یابد
         if ($jobState['status'] !== self::STATUS_RUNNING) {
             if ($jobState['status'] === self::STATUS_CANCELLING) {
                 $jobState['status'] = self::STATUS_CANCELLED;
                 $jobState['updated_at'] = current_time('mysql');
                 $this->saveJobState($jobState);
-                appLogger("[AIAgent] Job cancelled: {$jobState['id']}");
+                $this->updateJobInDatabase($jobState);
+                appLogger("[AIAgent] کار لغو شد: {$jobState['id']}");
             }
             return;
         }
 
-        $batchSize = 1; // Process one item at a time for better progress tracking
-        $processed = 0;
+        // بروزرسانی heartbeat
+        $jobState['last_heartbeat'] = time();
+        $this->saveJobState($jobState);
 
-        // Process products first
-        while ($processed < $batchSize && !empty($jobState['pending_products'])) {
+        $processed = 0;
+        $maxItems = 5; // پردازش حداکثر 5 مورد در هر batch
+
+        // پردازش محصولات
+        while ($processed < $maxItems && !empty($jobState['pending_products'])) {
+            // بررسی زمان اجرا
+            if ((time() - $startTime) > self::MAX_BATCH_EXECUTION_TIME) {
+                appLogger("[AIAgent] زمان batch به پایان رسید، زمان‌بندی ادامه...");
+                break;
+            }
+
             $productId = array_shift($jobState['pending_products']);
             $jobState['current_item'] = ['type' => 'product', 'id' => $productId];
+            $jobState['updated_at'] = current_time('mysql');
             $this->saveJobState($jobState);
 
             try {
+                appLogger("[AIAgent] در حال تحلیل محصول: {$productId}");
                 $result = $this->productAnalyzer->analyzeEntity($productId);
                 $jobState['products_processed']++;
                 
                 if ($result['success']) {
                     $jobState['products_success']++;
                     if (!empty($result['suggestions'])) {
-                        $jobState['actions_created'] += $this->createActionsFromSuggestions($result);
+                        $actionsCreated = $this->createActionsFromSuggestions($result);
+                        $jobState['actions_created'] += $actionsCreated;
                     }
+                    appLogger("[AIAgent] محصول {$productId} با موفقیت تحلیل شد");
                 } else {
                     $jobState['products_failed']++;
                     $jobState['errors'][] = [
@@ -248,6 +427,7 @@ class AnalysisJobManager
                         'id' => $productId,
                         'error' => $result['error'] ?? __('خطای ناشناخته', 'forooshyar'),
                     ];
+                    appLogger("[AIAgent] خطا در تحلیل محصول {$productId}: " . ($result['error'] ?? 'نامشخص'));
                 }
             } catch (\Exception $e) {
                 $jobState['products_processed']++;
@@ -257,38 +437,49 @@ class AnalysisJobManager
                     'id' => $productId,
                     'error' => $e->getMessage(),
                 ];
-                appLogger("[AIAgent] Product {$productId} exception: " . $e->getMessage());
+                appLogger("[AIAgent] استثنا در تحلیل محصول {$productId}: " . $e->getMessage());
             }
 
             $processed++;
             
-            // Check for cancellation
+            // بررسی لغو
             $currentState = $this->getJobState();
             if ($currentState['status'] === self::STATUS_CANCELLING) {
                 $jobState['status'] = self::STATUS_CANCELLED;
                 $jobState['updated_at'] = current_time('mysql');
                 $jobState['current_item'] = null;
                 $this->saveJobState($jobState);
-                appLogger("[AIAgent] Job cancelled during processing: {$jobState['id']}");
+                $this->updateJobInDatabase($jobState);
+                appLogger("[AIAgent] کار در حین پردازش لغو شد: {$jobState['id']}");
                 return;
             }
         }
 
-        // Process customers
-        while ($processed < $batchSize && !empty($jobState['pending_customers'])) {
+        // پردازش مشتریان
+        while ($processed < $maxItems && !empty($jobState['pending_customers'])) {
+            // بررسی زمان اجرا
+            if ((time() - $startTime) > self::MAX_BATCH_EXECUTION_TIME) {
+                appLogger("[AIAgent] زمان batch به پایان رسید، زمان‌بندی ادامه...");
+                break;
+            }
+
             $customerId = array_shift($jobState['pending_customers']);
             $jobState['current_item'] = ['type' => 'customer', 'id' => $customerId];
+            $jobState['updated_at'] = current_time('mysql');
             $this->saveJobState($jobState);
 
             try {
+                appLogger("[AIAgent] در حال تحلیل مشتری: {$customerId}");
                 $result = $this->customerAnalyzer->analyzeEntity($customerId);
                 $jobState['customers_processed']++;
                 
                 if ($result['success']) {
                     $jobState['customers_success']++;
                     if (!empty($result['suggestions'])) {
-                        $jobState['actions_created'] += $this->createActionsFromSuggestions($result);
+                        $actionsCreated = $this->createActionsFromSuggestions($result);
+                        $jobState['actions_created'] += $actionsCreated;
                     }
+                    appLogger("[AIAgent] مشتری {$customerId} با موفقیت تحلیل شد");
                 } else {
                     $jobState['customers_failed']++;
                     $jobState['errors'][] = [
@@ -296,6 +487,7 @@ class AnalysisJobManager
                         'id' => $customerId,
                         'error' => $result['error'] ?? __('خطای ناشناخته', 'forooshyar'),
                     ];
+                    appLogger("[AIAgent] خطا در تحلیل مشتری {$customerId}: " . ($result['error'] ?? 'نامشخص'));
                 }
             } catch (\Exception $e) {
                 $jobState['customers_processed']++;
@@ -305,64 +497,84 @@ class AnalysisJobManager
                     'id' => $customerId,
                     'error' => $e->getMessage(),
                 ];
+                appLogger("[AIAgent] استثنا در تحلیل مشتری {$customerId}: " . $e->getMessage());
             }
 
             $processed++;
             
-            // Check for cancellation
+            // بررسی لغو
             $currentState = $this->getJobState();
             if ($currentState['status'] === self::STATUS_CANCELLING) {
                 $jobState['status'] = self::STATUS_CANCELLED;
                 $jobState['updated_at'] = current_time('mysql');
                 $jobState['current_item'] = null;
                 $this->saveJobState($jobState);
+                $this->updateJobInDatabase($jobState);
                 return;
             }
         }
 
-        // Update job state
+        // بروزرسانی وضعیت کار
         $jobState['updated_at'] = current_time('mysql');
         $jobState['current_item'] = null;
 
-        // Check if job is complete
+        // بررسی اتمام کار
         if (empty($jobState['pending_products']) && empty($jobState['pending_customers'])) {
-            $jobState['status'] = self::STATUS_COMPLETED;
-            $jobState['completed_at'] = current_time('mysql');
-            
-            // Increment usage
-            $this->subscription->incrementUsage('analyses_per_day');
-            
-            // Auto-execute approved actions if enabled
-            $actionsExecuted = 0;
-            if ($this->settings->get('actions_auto_execute', false) && $this->actionExecutor) {
-                $actionsExecuted = $this->executeApprovedActions();
-                $jobState['actions_executed'] = $actionsExecuted;
-                appLogger("[AIAgent] Auto-executed {$actionsExecuted} approved actions");
-            }
-            
-            $this->saveJobState($jobState);
-            
-            // Save analysis run record
-            $this->database->saveAnalysisRun([
-                'type' => $jobState['type'],
-                'success' => true,
-                'products_analyzed' => $jobState['products_success'],
-                'customers_analyzed' => $jobState['customers_success'],
-                'actions_created' => $jobState['actions_created'],
-                'actions_executed' => $actionsExecuted,
-                'duration_ms' => 0,
-            ]);
-            
-            appLogger("[AIAgent] Job completed: {$jobState['id']} - Products: {$jobState['products_success']}/{$jobState['products_total']}, Customers: {$jobState['customers_success']}/{$jobState['customers_total']}, Actions executed: {$actionsExecuted}");
+            $this->completeJob($jobState);
         } else {
             $this->saveJobState($jobState);
-            // Schedule next batch
+            $this->updateJobInDatabase($jobState);
+            // زمان‌بندی batch بعدی
             $this->scheduleProcessing();
+            appLogger("[AIAgent] batch پردازش شد، موارد باقی‌مانده: محصولات=" . count($jobState['pending_products']) . "، مشتریان=" . count($jobState['pending_customers']));
         }
     }
 
     /**
-     * Cancel the current job
+     * تکمیل کار و ذخیره نتایج
+     *
+     * @param array $jobState
+     * @return void
+     */
+    private function completeJob(array &$jobState)
+    {
+        $jobState['status'] = self::STATUS_COMPLETED;
+        $jobState['completed_at'] = current_time('mysql');
+        
+        // افزایش شمارنده استفاده
+        $this->subscription->incrementUsage('analyses_per_day');
+        
+        // اجرای خودکار اقدامات تأیید شده
+        $actionsExecuted = 0;
+        if ($this->settings->get('actions_auto_execute', false) && $this->actionExecutor) {
+            $actionsExecuted = $this->executeApprovedActions();
+            $jobState['actions_executed'] = $actionsExecuted;
+            appLogger("[AIAgent] {$actionsExecuted} اقدام تأیید شده به صورت خودکار اجرا شد");
+        }
+        
+        $this->saveJobState($jobState);
+        $this->updateJobInDatabase($jobState);
+        
+        // ذخیره رکورد اجرای تحلیل
+        $this->database->saveAnalysisRun([
+            'type' => $jobState['type'],
+            'success' => true,
+            'products_analyzed' => $jobState['products_success'],
+            'customers_analyzed' => $jobState['customers_success'],
+            'actions_created' => $jobState['actions_created'],
+            'actions_executed' => $actionsExecuted,
+            'duration_ms' => 0,
+        ]);
+        
+        // پاکسازی cron
+        wp_clear_scheduled_hook(self::CRON_HOOK);
+        wp_clear_scheduled_hook(self::HEARTBEAT_HOOK);
+        
+        appLogger("[AIAgent] کار تکمیل شد: {$jobState['id']} - محصولات: {$jobState['products_success']}/{$jobState['products_total']}، مشتریان: {$jobState['customers_success']}/{$jobState['customers_total']}، اقدامات اجرا شده: {$actionsExecuted}");
+    }
+
+    /**
+     * لغو کار جاری
      *
      * @return array
      */
@@ -380,8 +592,9 @@ class AnalysisJobManager
         $jobState['status'] = self::STATUS_CANCELLING;
         $jobState['updated_at'] = current_time('mysql');
         $this->saveJobState($jobState);
+        $this->updateJobInDatabase($jobState);
 
-        appLogger("[AIAgent] Job cancellation requested: {$jobState['id']}");
+        appLogger("[AIAgent] درخواست لغو کار: {$jobState['id']}");
 
         return [
             'success' => true,
@@ -390,13 +603,18 @@ class AnalysisJobManager
     }
 
     /**
-     * Get current job state
+     * دریافت وضعیت کار جاری
      *
      * @return array
      */
     public function getJobState()
     {
         $state = get_option(self::OPTION_JOB_STATE, null);
+        
+        if (!$state) {
+            // بررسی دیتابیس برای کار ذخیره شده
+            $state = $this->loadJobFromDatabase();
+        }
         
         if (!$state) {
             return $this->getDefaultState();
@@ -406,7 +624,35 @@ class AnalysisJobManager
     }
 
     /**
-     * Get job progress for display
+     * بارگذاری کار از دیتابیس
+     *
+     * @return array|null
+     */
+    private function loadJobFromDatabase()
+    {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aiagent_scheduled';
+        
+        $row = $wpdb->get_row($wpdb->prepare(
+            "SELECT task_data FROM {$table} WHERE task_type = %s AND status = %s ORDER BY id DESC LIMIT 1",
+            'analysis_job',
+            'pending'
+        ));
+        
+        if ($row && !empty($row->task_data)) {
+            $data = json_decode($row->task_data, true);
+            if ($data) {
+                // همگام‌سازی با option
+                $this->saveJobState($data);
+                return $data;
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * دریافت پیشرفت کار برای نمایش
      *
      * @return array
      */
@@ -418,7 +664,7 @@ class AnalysisJobManager
         $processedItems = $state['products_processed'] + $state['customers_processed'];
         $percentage = $totalItems > 0 ? round(($processedItems / $totalItems) * 100) : 0;
 
-        // Format current item for display
+        // فرمت مورد جاری برای نمایش
         $currentItemText = null;
         if ($state['current_item']) {
             $type = $state['current_item']['type'] === 'product' ? 'محصول' : 'مشتری';
@@ -442,7 +688,7 @@ class AnalysisJobManager
             'customers_failed' => $state['customers_failed'],
             'actions_created' => $state['actions_created'],
             'current_item' => $currentItemText,
-            'errors' => \array_slice($state['errors'], -5), // Last 5 errors
+            'errors' => \array_slice($state['errors'], -5),
             'started_at' => $state['started_at'] ?? null,
             'updated_at' => $state['updated_at'] ?? null,
             'completed_at' => $state['completed_at'] ?? null,
@@ -450,7 +696,7 @@ class AnalysisJobManager
     }
 
     /**
-     * Reset job state (for cleanup)
+     * بازنشانی وضعیت کار
      *
      * @return void
      */
@@ -458,10 +704,16 @@ class AnalysisJobManager
     {
         delete_option(self::OPTION_JOB_STATE);
         wp_clear_scheduled_hook(self::CRON_HOOK);
+        wp_clear_scheduled_hook(self::HEARTBEAT_HOOK);
+        
+        // پاکسازی از دیتابیس
+        global $wpdb;
+        $table = $wpdb->prefix . 'aiagent_scheduled';
+        $wpdb->delete($table, ['task_type' => 'analysis_job', 'status' => 'pending']);
     }
 
     /**
-     * Save job state
+     * ذخیره وضعیت کار
      *
      * @param array $state
      * @return void
@@ -472,7 +724,7 @@ class AnalysisJobManager
     }
 
     /**
-     * Get default state
+     * دریافت وضعیت پیش‌فرض
      *
      * @return array
      */
@@ -485,6 +737,7 @@ class AnalysisJobManager
             'started_at' => null,
             'updated_at' => null,
             'completed_at' => null,
+            'last_heartbeat' => null,
             'products_total' => 0,
             'products_processed' => 0,
             'products_success' => 0,
@@ -502,27 +755,66 @@ class AnalysisJobManager
     }
 
     /**
-     * Schedule processing via cron
+     * زمان‌بندی پردازش از طریق cron
      *
      * @return void
      */
     private function scheduleProcessing()
     {
-        if (!wp_next_scheduled(self::CRON_HOOK)) {
-            wp_schedule_single_event(time() + 1, self::CRON_HOOK);
+        // پاکسازی زمان‌بندی‌های قبلی
+        wp_clear_scheduled_hook(self::CRON_HOOK);
+        
+        // زمان‌بندی فوری
+        wp_schedule_single_event(time() + 1, self::CRON_HOOK);
+        
+        appLogger("[AIAgent] پردازش زمان‌بندی شد");
+        
+        // همچنین یک درخواست HTTP برای اطمینان از اجرا ارسال کن
+        $this->triggerAsyncProcessing();
+    }
+
+    /**
+     * زمان‌بندی heartbeat برای بررسی دوره‌ای
+     *
+     * @return void
+     */
+    private function scheduleHeartbeat()
+    {
+        if (!wp_next_scheduled(self::HEARTBEAT_HOOK)) {
+            wp_schedule_event(time() + 60, 'every_minute', self::HEARTBEAT_HOOK);
         }
     }
 
     /**
-     * Create actions from analysis suggestions
+     * ارسال درخواست async برای اطمینان از اجرای cron
+     *
+     * @return void
+     */
+    private function triggerAsyncProcessing()
+    {
+        // استفاده از wp_remote_post برای ارسال درخواست غیرهمزمان
+        $url = add_query_arg([
+            'doing_wp_cron' => time(),
+            'aiagent_process' => 1,
+        ], site_url('/wp-cron.php'));
+        
+        wp_remote_post($url, [
+            'timeout' => 0.01,
+            'blocking' => false,
+            'sslverify' => false,
+        ]);
+    }
+
+    /**
+     * ایجاد اقدامات از پیشنهادات تحلیل
      *
      * @param array $analysisResult
-     * @return int Number of actions created
+     * @return int تعداد اقدامات ایجاد شده
      */
     private function createActionsFromSuggestions(array $analysisResult)
     {
         if (empty($analysisResult['suggestions'])) {
-            appLogger("[AIAgent] No suggestions to create actions from");
+            appLogger("[AIAgent] هیچ پیشنهادی برای ایجاد اقدام وجود ندارد");
             return 0;
         }
 
@@ -530,34 +822,30 @@ class AnalysisJobManager
         $requireApproval = $this->settings->get('actions_require_approval', []);
         $created = 0;
 
-        appLogger("[AIAgent] Creating actions from " . \count($analysisResult['suggestions']) . " suggestions");
-        appLogger("[AIAgent] Enabled action types: " . implode(', ', $enabledActions));
+        appLogger("[AIAgent] ایجاد اقدامات از " . \count($analysisResult['suggestions']) . " پیشنهاد");
+        appLogger("[AIAgent] انواع اقدامات فعال: " . implode(', ', $enabledActions));
 
         foreach ($analysisResult['suggestions'] as $suggestion) {
             $actionType = $suggestion['type'] ?? '';
 
-            appLogger("[AIAgent] Processing suggestion type: {$actionType}");
+            appLogger("[AIAgent] پردازش پیشنهاد نوع: {$actionType}");
 
             if (!\in_array($actionType, $enabledActions, true)) {
-                appLogger("[AIAgent] Skipping action type '{$actionType}' - not in enabled types");
+                appLogger("[AIAgent] رد شد نوع اقدام '{$actionType}' - در لیست فعال نیست");
                 continue;
             }
 
             $priority = (int) ($suggestion['priority'] ?? 50);
             $needsApproval = \in_array($actionType, $requireApproval, true);
 
-            // Include reasoning and entity info in action_data for display and deduplication
+            // شامل کردن دلیل و اطلاعات موجودیت در action_data
             $suggestionData = $suggestion['data'] ?? [];
             
-            // Copy reasoning from suggestion to action_data
             if (!empty($suggestion['reasoning'])) {
                 $suggestionData['reasoning'] = $suggestion['reasoning'];
-                appLogger("[AIAgent] Copying reasoning to action_data: " . substr($suggestion['reasoning'], 0, 100));
-            } else {
-                appLogger("[AIAgent] No reasoning found in suggestion for type: {$actionType}");
             }
             
-            // Add entity info for deduplication
+            // اضافه کردن اطلاعات موجودیت برای جلوگیری از تکرار
             if (!empty($analysisResult['entity_id'])) {
                 $suggestionData['entity_id'] = $analysisResult['entity_id'];
             }
@@ -565,7 +853,6 @@ class AnalysisJobManager
                 $suggestionData['entity_type'] = $analysisResult['entity_type'];
             }
             
-            // Also try to get product_id or customer_id from suggestion data
             if (!empty($suggestion['data']['product_id'])) {
                 $suggestionData['product_id'] = $suggestion['data']['product_id'];
             }
@@ -585,41 +872,40 @@ class AnalysisJobManager
             $actionId = $this->database->saveAction($actionData);
             if ($actionId) {
                 $created++;
-                appLogger("[AIAgent] Action created with ID: {$actionId}, type: {$actionType}");
+                appLogger("[AIAgent] اقدام ایجاد شد با شناسه: {$actionId}، نوع: {$actionType}");
             } else {
-                appLogger("[AIAgent] Failed to save action of type: {$actionType}");
+                appLogger("[AIAgent] خطا در ذخیره اقدام نوع: {$actionType}");
             }
         }
 
-        appLogger("[AIAgent] Total actions created: {$created}");
+        appLogger("[AIAgent] مجموع اقدامات ایجاد شده: {$created}");
         return $created;
     }
 
     /**
-     * Execute approved actions automatically
+     * اجرای خودکار اقدامات تأیید شده
      *
-     * @return int Number of actions executed
+     * @return int تعداد اقدامات اجرا شده
      */
     private function executeApprovedActions()
     {
         if (!$this->actionExecutor) {
-            appLogger("[AIAgent] ActionExecutor not available for auto-execute");
+            appLogger("[AIAgent] ActionExecutor برای اجرای خودکار در دسترس نیست");
             return 0;
         }
 
         $limit = (int) $this->settings->get('actions_max_per_run', 10);
         $priorityThreshold = (int) $this->settings->get('analysis_priority_threshold', 70);
         
-        // Get approved actions with high priority
+        // دریافت اقدامات تأیید شده با اولویت بالا
         $actions = $this->database->getActions([
             'status' => 'approved',
         ], $limit, 0);
 
         $executed = 0;
-        $errors = [];
 
         foreach ($actions as $action) {
-            // Only auto-execute high priority actions
+            // فقط اقدامات با اولویت بالا را اجرا کن
             if ($action['priority_score'] < $priorityThreshold) {
                 continue;
             }
@@ -628,17 +914,85 @@ class AnalysisJobManager
                 $result = $this->actionExecutor->executeById($action['id']);
                 if ($result['success']) {
                     $executed++;
-                    appLogger("[AIAgent] Auto-executed action #{$action['id']} ({$action['action_type']})");
+                    appLogger("[AIAgent] اقدام #{$action['id']} ({$action['action_type']}) به صورت خودکار اجرا شد");
                 } else {
-                    $errors[] = "Action #{$action['id']}: " . ($result['error'] ?? 'Unknown error');
-                    appLogger("[AIAgent] Failed to auto-execute action #{$action['id']}: " . ($result['error'] ?? 'Unknown error'));
+                    appLogger("[AIAgent] خطا در اجرای خودکار اقدام #{$action['id']}: " . ($result['error'] ?? 'نامشخص'));
                 }
             } catch (\Exception $e) {
-                $errors[] = "Action #{$action['id']}: " . $e->getMessage();
-                appLogger("[AIAgent] Exception auto-executing action #{$action['id']}: " . $e->getMessage());
+                appLogger("[AIAgent] استثنا در اجرای خودکار اقدام #{$action['id']}: " . $e->getMessage());
             }
         }
 
         return $executed;
+    }
+
+    /**
+     * بازیابی کار متوقف شده (برای فراخوانی دستی یا از طریق WP-CLI)
+     *
+     * @return array
+     */
+    public function resumeStaleJob()
+    {
+        $jobState = $this->getJobState();
+        
+        if ($jobState['status'] !== self::STATUS_RUNNING) {
+            return [
+                'success' => false,
+                'error' => __('هیچ کار در حال اجرایی برای بازیابی وجود ندارد', 'forooshyar'),
+            ];
+        }
+        
+        $lastUpdate = strtotime($jobState['updated_at']);
+        $now = time();
+        
+        if (($now - $lastUpdate) <= self::STALE_JOB_THRESHOLD) {
+            return [
+                'success' => false,
+                'error' => __('کار هنوز فعال است و نیازی به بازیابی ندارد', 'forooshyar'),
+            ];
+        }
+        
+        // بازیابی کار
+        $jobState['updated_at'] = current_time('mysql');
+        $jobState['last_heartbeat'] = time();
+        $this->saveJobState($jobState);
+        
+        $this->scheduleProcessing();
+        
+        appLogger("[AIAgent] کار متوقف شده بازیابی شد: {$jobState['id']}");
+        
+        return [
+            'success' => true,
+            'message' => __('کار با موفقیت بازیابی شد', 'forooshyar'),
+        ];
+    }
+
+    /**
+     * دریافت آمار کارها
+     *
+     * @return array
+     */
+    public function getJobStats()
+    {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aiagent_scheduled';
+        
+        $stats = $wpdb->get_results(
+            "SELECT status, COUNT(*) as count FROM {$table} WHERE task_type = 'analysis_job' GROUP BY status",
+            ARRAY_A
+        );
+        
+        $result = [
+            'pending' => 0,
+            'completed' => 0,
+            'failed' => 0,
+            'cancelled' => 0,
+        ];
+        
+        foreach ($stats as $row) {
+            $result[$row['status']] = (int) $row['count'];
+        }
+        
+        return $result;
     }
 }

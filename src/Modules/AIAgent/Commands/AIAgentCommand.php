@@ -381,4 +381,102 @@ class AIAgentCommand
         $migrations->run();
         \WP_CLI::success('Database migrations completed');
     }
+
+    /**
+     * بازیابی کار متوقف شده
+     *
+     * ## EXAMPLES
+     *     wp forooshyar ai resume
+     *
+     * @when after_wp_load
+     */
+    public function resume($args, $assoc_args)
+    {
+        $jobManager = Container::resolve(\Forooshyar\Modules\AIAgent\Services\AnalysisJobManager::class);
+        $result = $jobManager->resumeStaleJob();
+
+        if ($result['success']) {
+            \WP_CLI::success($result['message']);
+        } else {
+            \WP_CLI::error($result['error']);
+        }
+    }
+
+    /**
+     * نمایش وضعیت کار جاری
+     *
+     * ## EXAMPLES
+     *     wp forooshyar ai job-status
+     *
+     * @when after_wp_load
+     * @subcommand job-status
+     */
+    public function job_status($args, $assoc_args)
+    {
+        $jobManager = Container::resolve(\Forooshyar\Modules\AIAgent\Services\AnalysisJobManager::class);
+        $progress = $jobManager->getJobProgress();
+
+        \WP_CLI::line('وضعیت کار تحلیل');
+        \WP_CLI::line('----------------');
+        \WP_CLI::line('وضعیت: ' . $progress['status']);
+        \WP_CLI::line('پیشرفت: ' . $progress['percentage'] . '%');
+        \WP_CLI::line('محصولات: ' . $progress['products_analyzed'] . '/' . $progress['products_total']);
+        \WP_CLI::line('مشتریان: ' . $progress['customers_analyzed'] . '/' . $progress['customers_total']);
+        \WP_CLI::line('اقدامات ایجاد شده: ' . $progress['actions_created']);
+        
+        if ($progress['current_item']) {
+            \WP_CLI::line('مورد جاری: ' . $progress['current_item']);
+        }
+        
+        if (!empty($progress['errors'])) {
+            \WP_CLI::line('');
+            \WP_CLI::line('آخرین خطاها:');
+            foreach ($progress['errors'] as $error) {
+                \WP_CLI::line('  - ' . $error['type'] . ' #' . $error['id'] . ': ' . $error['error']);
+            }
+        }
+    }
+
+    /**
+     * بازنشانی وضعیت کار
+     *
+     * ## EXAMPLES
+     *     wp forooshyar ai reset-job
+     *
+     * @when after_wp_load
+     * @subcommand reset-job
+     */
+    public function reset_job($args, $assoc_args)
+    {
+        $jobManager = Container::resolve(\Forooshyar\Modules\AIAgent\Services\AnalysisJobManager::class);
+        $jobManager->resetJobState();
+        \WP_CLI::success('وضعیت کار بازنشانی شد');
+    }
+
+    /**
+     * پردازش دستی batch بعدی
+     *
+     * ## EXAMPLES
+     *     wp forooshyar ai process-batch
+     *
+     * @when after_wp_load
+     * @subcommand process-batch
+     */
+    public function process_batch($args, $assoc_args)
+    {
+        $jobManager = Container::resolve(\Forooshyar\Modules\AIAgent\Services\AnalysisJobManager::class);
+        
+        \WP_CLI::line('در حال پردازش batch...');
+        $jobManager->processNextBatch();
+        
+        $progress = $jobManager->getJobProgress();
+        \WP_CLI::line('وضعیت: ' . $progress['status']);
+        \WP_CLI::line('پیشرفت: ' . $progress['percentage'] . '%');
+        
+        if ($progress['status'] === 'completed') {
+            \WP_CLI::success('کار تکمیل شد');
+        } elseif ($progress['status'] === 'running') {
+            \WP_CLI::line('موارد باقی‌مانده وجود دارد. دوباره اجرا کنید.');
+        }
+    }
 }

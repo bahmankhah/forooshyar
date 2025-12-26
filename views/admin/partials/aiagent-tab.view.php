@@ -843,16 +843,16 @@ jQuery(document).ready(function($) {
     }
     
     function updateProgressUI(progress) {
-        $('.aiagent-progress-percent').text(progress.percentage + '%');
-        $('.aiagent-progress-fill').css('width', progress.percentage + '%');
+        var percent = progress.progress || progress.percentage || 0;
+        $('.aiagent-progress-percent').text(percent + '%');
+        $('.aiagent-progress-fill').css('width', percent + '%');
         
-        $('#aiagent-progress-products').text('<?php _e('محصولات:', 'forooshyar'); ?> ' + progress.products.processed + '/' + progress.products.total);
-        $('#aiagent-progress-customers').text('<?php _e('مشتریان:', 'forooshyar'); ?> ' + progress.customers.processed + '/' + progress.customers.total);
-        $('#aiagent-progress-actions').text('<?php _e('اقدامات:', 'forooshyar'); ?> ' + progress.actions_created);
+        $('#aiagent-progress-products').text('<?php _e('محصولات:', 'forooshyar'); ?> ' + (progress.products_analyzed || 0) + '/' + (progress.products_total || 0));
+        $('#aiagent-progress-customers').text('<?php _e('مشتریان:', 'forooshyar'); ?> ' + (progress.customers_analyzed || 0) + '/' + (progress.customers_total || 0));
+        $('#aiagent-progress-actions').text('<?php _e('اقدامات:', 'forooshyar'); ?> ' + (progress.actions_created || 0));
         
         if (progress.current_item) {
-            var itemType = progress.current_item.type === 'product' ? '<?php _e('محصول', 'forooshyar'); ?>' : '<?php _e('مشتری', 'forooshyar'); ?>';
-            $('#aiagent-current-item').text('<?php _e('در حال تحلیل:', 'forooshyar'); ?> ' + itemType + ' #' + progress.current_item.id);
+            $('#aiagent-current-item').text('<?php _e('در حال تحلیل:', 'forooshyar'); ?> ' + progress.current_item);
         } else {
             $('#aiagent-current-item').text('');
         }
@@ -865,8 +865,11 @@ jQuery(document).ready(function($) {
     
     function showCompletedResult(progress) {
         var $result = $('.aiagent-analysis-result');
-        var totalSuccess = progress.products.success + progress.customers.success;
-        var totalFailed = progress.products.failed + progress.customers.failed;
+        var productsSuccess = progress.products_analyzed || 0;
+        var customersSuccess = progress.customers_analyzed || 0;
+        var productsFailed = progress.products_failed || 0;
+        var customersFailed = progress.customers_failed || 0;
+        var totalFailed = productsFailed + customersFailed;
         
         var message = '';
         var resultClass = '';
@@ -874,9 +877,9 @@ jQuery(document).ready(function($) {
         if (progress.status === 'completed') {
             resultClass = 'success';
             message = '<?php _e('تحلیل با موفقیت انجام شد.', 'forooshyar'); ?><br>';
-            message += '<?php _e('محصولات:', 'forooshyar'); ?> ' + progress.products.success + '/' + progress.products.total + ' ';
-            message += '<?php _e('مشتریان:', 'forooshyar'); ?> ' + progress.customers.success + '/' + progress.customers.total + ' ';
-            message += '<?php _e('اقدامات ایجاد شده:', 'forooshyar'); ?> ' + progress.actions_created;
+            message += '<?php _e('محصولات:', 'forooshyar'); ?> ' + productsSuccess + '/' + (progress.products_total || 0) + ' ';
+            message += '<?php _e('مشتریان:', 'forooshyar'); ?> ' + customersSuccess + '/' + (progress.customers_total || 0) + ' ';
+            message += '<?php _e('اقدامات ایجاد شده:', 'forooshyar'); ?> ' + (progress.actions_created || 0);
             
             if (totalFailed > 0) {
                 message += '<br><small style="color:#856404;"><?php _e('تعداد خطاها:', 'forooshyar'); ?> ' + totalFailed + '</small>';
@@ -884,12 +887,12 @@ jQuery(document).ready(function($) {
         } else if (progress.status === 'cancelled') {
             resultClass = 'cancelled';
             message = '<?php _e('تحلیل لغو شد.', 'forooshyar'); ?><br>';
-            message += '<?php _e('تحلیل شده:', 'forooshyar'); ?> ' + (progress.products.processed + progress.customers.processed);
+            message += '<?php _e('تحلیل شده:', 'forooshyar'); ?> ' + ((progress.products_processed || 0) + (progress.customers_processed || 0));
         } else if (progress.status === 'failed') {
             resultClass = 'error';
             message = '<?php _e('تحلیل با خطا مواجه شد.', 'forooshyar'); ?>';
             if (progress.errors && progress.errors.length > 0) {
-                message += '<br><small>' + progress.errors.map(function(e) { return e.error; }).join('<br>') + '</small>';
+                message += '<br><small>' + progress.errors.map(function(e) { return e.error || e; }).join('<br>') + '</small>';
             }
         }
         

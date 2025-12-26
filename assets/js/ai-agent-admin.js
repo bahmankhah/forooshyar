@@ -1,11 +1,13 @@
 /**
  * AI Agent Admin JavaScript
+ * اسکریپت مدیریت دستیار هوشمند فروش
  */
 (function($) {
     'use strict';
 
     var progressPollInterval = null;
     var activityChart = null;
+    var heartbeatEnabled = false;
 
     // Initialize when document is ready
     $(document).ready(function() {
@@ -13,7 +15,34 @@
         initActions();
         initDashboard();
         initActivityChart();
+        initHeartbeat();
     });
+
+    /**
+     * Initialize WordPress Heartbeat API for job monitoring
+     * استفاده از Heartbeat API وردپرس برای نظارت پایدار بر کارها
+     */
+    function initHeartbeat() {
+        // اضافه کردن داده به Heartbeat
+        $(document).on('heartbeat-send', function(e, data) {
+            if (heartbeatEnabled) {
+                data.aiagent_check_job = true;
+            }
+        });
+
+        // دریافت پاسخ از Heartbeat
+        $(document).on('heartbeat-tick', function(e, data) {
+            if (data.aiagent_job_status) {
+                updateProgressUI(data.aiagent_job_status);
+                
+                var status = data.aiagent_job_status.status;
+                if (status === 'completed' || status === 'failed' || status === 'cancelled') {
+                    heartbeatEnabled = false;
+                    handleJobCompletion(data.aiagent_job_status);
+                }
+            }
+        });
+    }
 
     /**
      * Initialize tab navigation
@@ -104,6 +133,7 @@
 
     /**
      * Start async analysis
+     * شروع تحلیل غیرهمزمان
      */
     function startAnalysis() {
         var $btn = $('#run-analysis');
@@ -125,11 +155,20 @@
                     $progressSection.show();
                     $cancelBtn.show();
                     $btn.hide();
+                    
+                    // فعال کردن Heartbeat و polling
+                    heartbeatEnabled = true;
                     startProgressPolling();
+                    
+                    // تنظیم Heartbeat برای بررسی سریع‌تر
+                    if (typeof wp !== 'undefined' && wp.heartbeat) {
+                        wp.heartbeat.interval('fast');
+                    }
+                    
                     showNotice('success', 'تحلیل شروع شد');
                 } else {
                     $btn.prop('disabled', false).html('<span class="dashicons dashicons-chart-bar"></span> شروع تحلیل');
-                    showNotice('error', response.data.message || 'خطا در شروع تحلیل');
+                    showNotice('error', response.data.message || response.data.error || 'خطا در شروع تحلیل');
                 }
             },
             error: function() {
@@ -141,6 +180,7 @@
 
     /**
      * Cancel running analysis
+     * لغو تحلیل در حال اجرا
      */
     function cancelAnalysis() {
         var $cancelBtn = $('#cancel-analysis');
@@ -155,8 +195,15 @@
                 nonce: aiagentAdmin.nonce
             },
             success: function(response) {
+                heartbeatEnabled = false;
                 stopProgressPolling();
                 resetAnalysisUI();
+                
+                // بازگرداندن Heartbeat به حالت عادی
+                if (typeof wp !== 'undefined' && wp.heartbeat) {
+                    wp.heartbeat.interval('standard');
+                }
+                
                 if (response.success) {
                     showNotice('success', 'تحلیل لغو شد');
                 } else {
@@ -164,6 +211,7 @@
                 }
             },
             error: function() {
+                heartbeatEnabled = false;
                 stopProgressPolling();
                 resetAnalysisUI();
                 showNotice('error', 'خطا در ارتباط با سرور');
@@ -173,6 +221,7 @@
 
     /**
      * Check for ongoing analysis on page load
+     * بررسی تحلیل در حال اجرا هنگام بارگذاری صفحه
      */
     function checkOngoingAnalysis() {
         $.ajax({
@@ -183,12 +232,19 @@
                 nonce: aiagentAdmin.nonce
             },
             success: function(response) {
-                if (response.success && response.data.status === 'running') {
+                if (response.success && (response.data.status === 'running' || response.data.status === 'cancelling')) {
                     $('#analysis-progress-section').show();
                     $('#cancel-analysis').show();
                     $('#run-analysis').hide();
                     updateProgressUI(response.data);
+                    
+                    // فعال کردن Heartbeat و polling
+                    heartbeatEnabled = true;
                     startProgressPolling();
+                    
+                    if (typeof wp !== 'undefined' && wp.heartbeat) {
+                        wp.heartbeat.interval('fast');
+                    }
                 }
             }
         });
@@ -196,12 +252,14 @@
 
     /**
      * Start polling for progress updates
+     * شروع نظرسنجی برای بروزرسانی پیشرفت
      */
     function startProgressPolling() {
         if (progressPollInterval) {
             clearInterval(progressPollInterval);
         }
 
+        // نظرسنجی هر 3 ثانیه
         progressPollInterval = setInterval(function() {
             $.ajax({
                 url: aiagentAdmin.ajaxUrl,
@@ -215,24 +273,39 @@
                         updateProgressUI(response.data);
 
                         if (response.data.status === 'completed' || response.data.status === 'failed' || response.data.status === 'cancelled') {
-                            stopProgressPolling();
-                            
-                            if (response.data.status === 'completed') {
-                                showNotice('success', 'تحلیل با موفقیت انجام شد. محصولات: ' + response.data.products_analyzed + '/' + response.data.products_total + '، اقدامات: ' + response.data.actions_created);
-                                setTimeout(function() {
-                                    location.reload();
-                                }, 2000);
-                            } else if (response.data.status === 'failed') {
-                                showNotice('error', 'تحلیل با خطا مواجه شد: ' + (response.data.error || 'خطای ناشناخته'));
-                                resetAnalysisUI();
-                            } else {
-                                resetAnalysisUI();
-                            }
+                            handleJobCompletion(response.data);
                         }
                     }
                 }
             });
-        }, 2000);
+        }, 3000);
+    }
+
+    /**
+     * Handle job completion
+     * مدیریت اتمام کار
+     */
+    function handleJobCompletion(data) {
+        heartbeatEnabled = false;
+        stopProgressPolling();
+        
+        // بازگرداندن Heartbeat به حالت عادی
+        if (typeof wp !== 'undefined' && wp.heartbeat) {
+            wp.heartbeat.interval('standard');
+        }
+        
+        if (data.status === 'completed') {
+            showNotice('success', 'تحلیل با موفقیت انجام شد. محصولات: ' + data.products_analyzed + '/' + data.products_total + '، اقدامات: ' + data.actions_created);
+            setTimeout(function() {
+                location.reload();
+            }, 2000);
+        } else if (data.status === 'failed') {
+            showNotice('error', 'تحلیل با خطا مواجه شد');
+            resetAnalysisUI();
+        } else if (data.status === 'cancelled') {
+            showNotice('info', 'تحلیل لغو شد');
+            resetAnalysisUI();
+        }
     }
 
     /**
