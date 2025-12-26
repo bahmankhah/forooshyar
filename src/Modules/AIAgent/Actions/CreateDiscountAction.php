@@ -18,11 +18,11 @@ class CreateDiscountAction extends AbstractAction
     /** @var string */
     protected $description = 'Create WooCommerce coupon code';
 
-    /** @var array */
-    protected $requiredFields = ['code', 'amount'];
+    /** @var array - Accept both LLM field names and legacy field names */
+    protected $requiredFields = [];
 
     /** @var array */
-    protected $optionalFields = ['type', 'expiry_date', 'customer_id', 'product_ids', 'usage_limit'];
+    protected $optionalFields = ['type', 'expiry_date', 'customer_id', 'product_ids', 'usage_limit', 'valid_days', 'description'];
 
     /**
      * Execute the action
@@ -32,18 +32,31 @@ class CreateDiscountAction extends AbstractAction
      */
     public function execute(array $data)
     {
-        $code = sanitize_text_field($data['code']);
-        $amount = floatval($data['amount']);
+        // Support both LLM field names and legacy field names
+        $code = sanitize_text_field($this->getField($data, 'discount_code', $this->getField($data, 'code', '')));
+        $amount = floatval($this->getField($data, 'discount_percent', $this->getField($data, 'amount', 0)));
         $type = $this->getField($data, 'type', 'percent');
-        $expiryDate = $this->getField($data, 'expiry_date');
-        $customerId = $this->getField($data, 'customer_id');
+        $validDays = intval($this->getField($data, 'valid_days', 30));
+        $customerId = $this->getField($data, 'customer_id', $this->getField($data, 'entity_id'));
         $productIds = $this->getField($data, 'product_ids', []);
         $usageLimit = $this->getField($data, 'usage_limit', 1);
+        
+        // If no code provided, generate one
+        if (empty($code)) {
+            $code = 'AI' . strtoupper(wp_generate_password(8, false));
+        }
+        
+        // Calculate expiry date from valid_days
+        $expiryDate = $this->getField($data, 'expiry_date');
+        if (!$expiryDate && $validDays > 0) {
+            $expiryDate = date('Y-m-d', strtotime("+{$validDays} days"));
+        }
 
         // Check if coupon already exists
         $existingCoupon = wc_get_coupon_id_by_code($code);
         if ($existingCoupon) {
-            return $this->error('Coupon code already exists');
+            // Append random suffix to make unique
+            $code = $code . '_' . wp_generate_password(4, false, false);
         }
 
         // Create coupon
@@ -72,11 +85,18 @@ class CreateDiscountAction extends AbstractAction
         }
 
         // Restrict to specific customer
-        if ($customerId) {
+        $entityType = $this->getField($data, 'entity_type');
+        if ($entityType === 'customer' && $customerId) {
             $customer = new \WC_Customer($customerId);
             if ($customer->get_email()) {
                 $coupon->set_email_restrictions([$customer->get_email()]);
             }
+        }
+        
+        // If entity_type is product, restrict to that product
+        $entityId = $this->getField($data, 'entity_id');
+        if ($entityType === 'product' && $entityId) {
+            $productIds = [$entityId];
         }
 
         // Restrict to specific products
@@ -89,18 +109,25 @@ class CreateDiscountAction extends AbstractAction
 
         // Set individual use
         $coupon->set_individual_use(true);
+        
+        // Set description if provided
+        $description = $this->getField($data, 'description', '');
+        if ($description) {
+            $coupon->set_description($description);
+        }
 
         try {
             $couponId = $coupon->save();
 
-            return $this->success('Coupon created successfully', [
+            return $this->success(__('کد تخفیف با موفقیت ایجاد شد', 'forooshyar'), [
                 'coupon_id' => $couponId,
                 'code' => $code,
                 'amount' => $amount,
                 'type' => $type,
+                'expiry_date' => $expiryDate,
             ]);
         } catch (\Exception $e) {
-            return $this->error('Failed to create coupon: ' . $e->getMessage());
+            return $this->error(__('خطا در ایجاد کد تخفیف: ', 'forooshyar') . $e->getMessage());
         }
     }
 
@@ -112,33 +139,29 @@ class CreateDiscountAction extends AbstractAction
      */
     public function validate(array $data)
     {
-        $result = parent::validate($data);
-
-        if (!$result['valid']) {
-            return $result;
-        }
-
-        // Validate amount
-        if (isset($data['amount']) && floatval($data['amount']) <= 0) {
-            $result['valid'] = false;
-            $result['errors'][] = 'Amount must be greater than 0';
+        $errors = [];
+        
+        // Check for amount (either discount_percent or amount)
+        $amount = $this->getField($data, 'discount_percent', $this->getField($data, 'amount', 0));
+        if (floatval($amount) <= 0) {
+            $errors[] = __('مقدار تخفیف باید بیشتر از صفر باشد', 'forooshyar');
         }
 
         // Validate discount type
+        $type = $this->getField($data, 'type', 'percent');
         $validTypes = ['percent', 'fixed', 'fixed_cart', 'fixed_product'];
-        if (isset($data['type']) && !in_array($data['type'], $validTypes)) {
-            $result['valid'] = false;
-            $result['errors'][] = 'Invalid discount type';
+        if (!in_array($type, $validTypes)) {
+            $errors[] = __('نوع تخفیف نامعتبر است', 'forooshyar');
         }
 
         // Validate percent amount
-        if (isset($data['type']) && $data['type'] === 'percent' && isset($data['amount'])) {
-            if (floatval($data['amount']) > 100) {
-                $result['valid'] = false;
-                $result['errors'][] = 'Percent discount cannot exceed 100%';
-            }
+        if ($type === 'percent' && floatval($amount) > 100) {
+            $errors[] = __('درصد تخفیف نمی‌تواند بیشتر از ۱۰۰ باشد', 'forooshyar');
         }
 
-        return $result;
+        return [
+            'valid' => empty($errors),
+            'errors' => $errors,
+        ];
     }
 }

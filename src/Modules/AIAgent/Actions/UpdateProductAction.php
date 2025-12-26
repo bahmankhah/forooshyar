@@ -19,10 +19,10 @@ class UpdateProductAction extends AbstractAction
     protected $description = 'Update WooCommerce product data';
 
     /** @var array */
-    protected $requiredFields = ['product_id'];
+    protected $requiredFields = [];
 
     /** @var array */
-    protected $optionalFields = ['price', 'sale_price', 'stock_quantity', 'featured', 'status'];
+    protected $optionalFields = ['product_id', 'entity_id', 'entity_type', 'new_price', 'price', 'price_change_percent', 'sale_price', 'stock_quantity', 'featured', 'status', 'update_description'];
 
     /**
      * Execute the action
@@ -32,62 +32,85 @@ class UpdateProductAction extends AbstractAction
      */
     public function execute(array $data)
     {
-        $productId = absint($data['product_id']);
+        // Support both product_id and entity_id
+        $productId = $this->getField($data, 'product_id');
+        if (!$productId) {
+            $entityType = $this->getField($data, 'entity_type');
+            $entityId = $this->getField($data, 'entity_id');
+            if ($entityType === 'product' && $entityId) {
+                $productId = $entityId;
+            }
+        }
+        
+        if (!$productId) {
+            return $this->error(__('شناسه محصول یافت نشد', 'forooshyar'));
+        }
+        
+        $productId = absint($productId);
         $product = wc_get_product($productId);
 
         if (!$product) {
-            return $this->error('Product not found');
+            return $this->error(__('محصول یافت نشد', 'forooshyar'));
         }
 
         $updated = [];
 
-        // Update regular price
-        if (isset($data['price'])) {
-            $price = floatval($data['price']);
+        // Update regular price - support both new_price and price
+        $newPrice = $this->getField($data, 'new_price', $this->getField($data, 'price'));
+        if ($newPrice !== null) {
+            $price = floatval($newPrice);
             $product->set_regular_price($price);
             $updated['price'] = $price;
         }
 
         // Update sale price
-        if (isset($data['sale_price'])) {
-            $salePrice = $data['sale_price'] === '' ? '' : floatval($data['sale_price']);
+        $salePrice = $this->getField($data, 'sale_price');
+        if ($salePrice !== null) {
+            $salePrice = $salePrice === '' ? '' : floatval($salePrice);
             $product->set_sale_price($salePrice);
             $updated['sale_price'] = $salePrice;
         }
 
         // Update stock quantity
-        if (isset($data['stock_quantity'])) {
-            $stockQty = intval($data['stock_quantity']);
+        $stockQty = $this->getField($data, 'stock_quantity');
+        if ($stockQty !== null) {
+            $stockQty = intval($stockQty);
             $product->set_stock_quantity($stockQty);
             $product->set_manage_stock(true);
             $updated['stock_quantity'] = $stockQty;
         }
 
         // Update featured status
-        if (isset($data['featured'])) {
-            $featured = (bool) $data['featured'];
+        $featured = $this->getField($data, 'featured');
+        if ($featured !== null) {
+            $featured = (bool) $featured;
             $product->set_featured($featured);
             $updated['featured'] = $featured;
         }
 
         // Update status
-        if (isset($data['status'])) {
+        $status = $this->getField($data, 'status');
+        if ($status !== null) {
             $validStatuses = ['publish', 'draft', 'pending', 'private'];
-            if (in_array($data['status'], $validStatuses)) {
-                $product->set_status($data['status']);
-                $updated['status'] = $data['status'];
+            if (in_array($status, $validStatuses)) {
+                $product->set_status($status);
+                $updated['status'] = $status;
             }
+        }
+
+        if (empty($updated)) {
+            return $this->error(__('هیچ فیلدی برای بروزرسانی مشخص نشده', 'forooshyar'));
         }
 
         try {
             $product->save();
 
-            return $this->success('Product updated successfully', [
+            return $this->success(__('محصول با موفقیت بروزرسانی شد', 'forooshyar'), [
                 'product_id' => $productId,
                 'updated_fields' => $updated,
             ]);
         } catch (\Exception $e) {
-            return $this->error('Failed to update product: ' . $e->getMessage());
+            return $this->error(__('خطا در بروزرسانی محصول: ', 'forooshyar') . $e->getMessage());
         }
     }
 
@@ -99,40 +122,42 @@ class UpdateProductAction extends AbstractAction
      */
     public function validate(array $data)
     {
-        $result = parent::validate($data);
-
-        if (!$result['valid']) {
-            return $result;
+        $errors = [];
+        
+        // Check for product_id or entity_id
+        $productId = $this->getField($data, 'product_id');
+        if (!$productId) {
+            $entityType = $this->getField($data, 'entity_type');
+            $entityId = $this->getField($data, 'entity_id');
+            if ($entityType === 'product' && $entityId) {
+                $productId = $entityId;
+            }
         }
-
-        // Validate product exists
-        if (isset($data['product_id'])) {
-            $product = wc_get_product(absint($data['product_id']));
+        
+        if (!$productId) {
+            $errors[] = __('شناسه محصول الزامی است', 'forooshyar');
+        } else {
+            // Validate product exists
+            $product = wc_get_product(absint($productId));
             if (!$product) {
-                $result['valid'] = false;
-                $result['errors'][] = 'Product not found';
+                $errors[] = __('محصول یافت نشد', 'forooshyar');
             }
         }
 
         // Validate price values
-        if (isset($data['price']) && floatval($data['price']) < 0) {
-            $result['valid'] = false;
-            $result['errors'][] = 'Price cannot be negative';
+        $newPrice = $this->getField($data, 'new_price', $this->getField($data, 'price'));
+        if ($newPrice !== null && floatval($newPrice) < 0) {
+            $errors[] = __('قیمت نمی‌تواند منفی باشد', 'forooshyar');
         }
 
-        if (isset($data['sale_price']) && $data['sale_price'] !== '' && floatval($data['sale_price']) < 0) {
-            $result['valid'] = false;
-            $result['errors'][] = 'Sale price cannot be negative';
+        $salePrice = $this->getField($data, 'sale_price');
+        if ($salePrice !== null && $salePrice !== '' && floatval($salePrice) < 0) {
+            $errors[] = __('قیمت حراج نمی‌تواند منفی باشد', 'forooshyar');
         }
 
-        // Validate sale price is less than regular price
-        if (isset($data['price']) && isset($data['sale_price']) && $data['sale_price'] !== '') {
-            if (floatval($data['sale_price']) >= floatval($data['price'])) {
-                $result['valid'] = false;
-                $result['errors'][] = 'Sale price must be less than regular price';
-            }
-        }
-
-        return $result;
+        return [
+            'valid' => empty($errors),
+            'errors' => $errors,
+        ];
     }
 }

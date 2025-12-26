@@ -18,11 +18,11 @@ class SendEmailAction extends AbstractAction
     /** @var string */
     protected $description = 'Send personalized email to customer';
 
-    /** @var array */
-    protected $requiredFields = ['email', 'subject', 'message'];
+    /** @var array - No required fields, we'll get email from customer_id or entity_id */
+    protected $requiredFields = [];
 
     /** @var array */
-    protected $optionalFields = ['customer_id', 'template'];
+    protected $optionalFields = ['email', 'customer_id', 'entity_id', 'entity_type', 'template', 'email_type'];
 
     /**
      * Execute the action
@@ -32,12 +32,38 @@ class SendEmailAction extends AbstractAction
      */
     public function execute(array $data)
     {
-        $email = sanitize_email($data['email']);
-        $subject = sanitize_text_field($data['subject']);
-        $message = wp_kses_post($data['message']);
-
-        if (!is_email($email)) {
-            return $this->error('Invalid email address');
+        $subject = sanitize_text_field($this->getField($data, 'subject', ''));
+        $message = wp_kses_post($this->getField($data, 'message', ''));
+        
+        // Get email - try direct email first, then customer_id, then entity_id
+        $email = $this->getField($data, 'email', '');
+        
+        if (empty($email)) {
+            $customerId = $this->getField($data, 'customer_id');
+            if (!$customerId) {
+                $entityType = $this->getField($data, 'entity_type');
+                $entityId = $this->getField($data, 'entity_id');
+                if ($entityType === 'customer' && $entityId) {
+                    $customerId = $entityId;
+                }
+            }
+            
+            if ($customerId) {
+                $customer = new \WC_Customer($customerId);
+                $email = $customer->get_email();
+            }
+        }
+        
+        if (empty($email) || !is_email($email)) {
+            return $this->error(__('آدرس ایمیل معتبر یافت نشد', 'forooshyar'));
+        }
+        
+        if (empty($subject)) {
+            return $this->error(__('موضوع ایمیل الزامی است', 'forooshyar'));
+        }
+        
+        if (empty($message)) {
+            return $this->error(__('متن ایمیل الزامی است', 'forooshyar'));
         }
 
         $headers = ['Content-Type: text/html; charset=UTF-8'];
@@ -54,13 +80,49 @@ class SendEmailAction extends AbstractAction
         $sent = wp_mail($email, $subject, $htmlMessage, $headers);
 
         if ($sent) {
-            return $this->success('Email sent successfully', [
+            return $this->success(__('ایمیل با موفقیت ارسال شد', 'forooshyar'), [
                 'email' => $email,
                 'subject' => $subject,
             ]);
         }
 
-        return $this->error('Failed to send email');
+        return $this->error(__('خطا در ارسال ایمیل', 'forooshyar'));
+    }
+
+    /**
+     * Validate action data
+     *
+     * @param array $data
+     * @return array
+     */
+    public function validate(array $data)
+    {
+        $errors = [];
+        
+        // Check for subject
+        if (empty($this->getField($data, 'subject', ''))) {
+            $errors[] = __('موضوع ایمیل الزامی است', 'forooshyar');
+        }
+        
+        // Check for message
+        if (empty($this->getField($data, 'message', ''))) {
+            $errors[] = __('متن ایمیل الزامی است', 'forooshyar');
+        }
+        
+        // Check for email source (email, customer_id, or entity_id with entity_type=customer)
+        $email = $this->getField($data, 'email', '');
+        $customerId = $this->getField($data, 'customer_id');
+        $entityType = $this->getField($data, 'entity_type');
+        $entityId = $this->getField($data, 'entity_id');
+        
+        if (empty($email) && empty($customerId) && !($entityType === 'customer' && $entityId)) {
+            $errors[] = __('آدرس ایمیل یا شناسه مشتری الزامی است', 'forooshyar');
+        }
+        
+        return [
+            'valid' => empty($errors),
+            'errors' => $errors,
+        ];
     }
 
     /**
@@ -76,12 +138,12 @@ class SendEmailAction extends AbstractAction
 
         return "
 <!DOCTYPE html>
-<html>
+<html dir='rtl' lang='fa'>
 <head>
     <meta charset='UTF-8'>
     <title>{$subject}</title>
 </head>
-<body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333;'>
+<body style='font-family: Tahoma, Arial, sans-serif; line-height: 1.8; color: #333; direction: rtl;'>
     <div style='max-width: 600px; margin: 0 auto; padding: 20px;'>
         <h2 style='color: #2c3e50;'>{$subject}</h2>
         <div style='margin: 20px 0;'>
@@ -89,7 +151,7 @@ class SendEmailAction extends AbstractAction
         </div>
         <hr style='border: none; border-top: 1px solid #eee; margin: 20px 0;'>
         <p style='font-size: 12px; color: #999;'>
-            This email was sent by {$siteName}
+            این ایمیل توسط {$siteName} ارسال شده است
         </p>
     </div>
 </body>

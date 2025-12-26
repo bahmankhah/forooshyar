@@ -9,6 +9,7 @@ namespace Forooshyar\Modules\AIAgent\Services;
 
 use Forooshyar\Modules\AIAgent\Contracts\ActionInterface;
 use Forooshyar\Modules\AIAgent\Actions\SendEmailAction;
+use Forooshyar\Modules\AIAgent\Actions\SendSmsAction;
 use Forooshyar\Modules\AIAgent\Actions\CreateDiscountAction;
 use Forooshyar\Modules\AIAgent\Actions\UpdateProductAction;
 use Forooshyar\Modules\AIAgent\Actions\ScheduleFollowupAction;
@@ -58,6 +59,7 @@ class ActionExecutor
     {
         $this->handlers = [
             'send_email' => SendEmailAction::class,
+            'send_sms' => SendSmsAction::class,
             'create_discount' => CreateDiscountAction::class,
             'update_product' => UpdateProductAction::class,
             'schedule_followup' => ScheduleFollowupAction::class,
