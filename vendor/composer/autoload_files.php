@@ -7,4 +7,5 @@ $baseDir = dirname($vendorDir);
 
 return array(
     '8ed042297ae8365df778865d8666ca4e' => $vendorDir . '/hsm/wplite/src/Helpers/main.php',
+    'b2f834a1b3bd09787aa228b8e4d58b3e' => $baseDir . '/src/WPLite/Helpers/main.php',
 );

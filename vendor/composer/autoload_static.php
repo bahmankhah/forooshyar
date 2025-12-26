@@ -8,6 +8,7 @@ class ComposerStaticInit60bbde5423fc8e0370e431ed75675ae4
 {
     public static $files = array (
         '8ed042297ae8365df778865d8666ca4e' => __DIR__ . '/..' . '/hsm/wplite/src/Helpers/main.php',
+        'b2f834a1b3bd09787aa228b8e4d58b3e' => __DIR__ . '/../..' . '/src/WPLite/Helpers/main.php',
     );
 
     public static $prefixLengthsPsr4 = array (
