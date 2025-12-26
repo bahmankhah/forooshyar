@@ -239,14 +239,11 @@ class AppServiceProvider extends Provider
     }
     
     public function activate() {
-        appLogger('Forooshyar: activate() method called');
     }
     
     public function deactivate() {
-        appLogger('Forooshyar: deactivate() method called');
     }
     
     public function uninstall() {
-        appLogger('Forooshyar: uninstall() method called');
     }
 }

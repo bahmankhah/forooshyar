@@ -39,7 +39,6 @@ return [
                     'product_analysis',
                     'customer_analysis',
                     'auto_actions',
-                    'sql_analysis',
                     'advanced_reports'
                 ],
                 'limits' => [
@@ -286,14 +285,6 @@ return [
             'label' => 'مدت نگهداری داده‌ها (روز)',
             'section' => 'analysis',
             'description' => 'داده‌های تحلیل قدیمی‌تر از این مدت حذف می‌شوند',
-        ],
-        'analysis_enable_sql' => [
-            'type' => 'boolean',
-            'default' => false,
-            'label' => 'فعال‌سازی تحلیل SQL',
-            'section' => 'analysis',
-            'requires_feature' => 'sql_analysis',
-            'description' => 'تحلیل پیشرفته با کوئری‌های SQL مستقیم',
         ],
         'analysis_skip_analyzed_days' => [
             'type' => 'number',

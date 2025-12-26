@@ -1082,7 +1082,6 @@ class SettingsManager
             'customer_limit' => (int) $this->get('analysis_customer_limit', 100),
             'priority_threshold' => (int) $this->get('analysis_priority_threshold', 70),
             'retention_days' => (int) $this->get('analysis_retention_days', 90),
-            'enable_sql' => (bool) $this->get('analysis_enable_sql', false),
         ];
     }
 
