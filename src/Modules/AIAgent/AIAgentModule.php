@@ -460,6 +460,7 @@ class AIAgentModule
         add_action('wp_ajax_aiagent_start_analysis', [$this, 'ajaxStartAnalysis']);
         add_action('wp_ajax_aiagent_cancel_analysis', [$this, 'ajaxCancelAnalysis']);
         add_action('wp_ajax_aiagent_get_analysis_progress', [$this, 'ajaxGetAnalysisProgress']);
+        add_action('wp_ajax_aiagent_process_batch', [$this, 'ajaxProcessBatch']); // New: dedicated batch processor
         add_action('wp_ajax_aiagent_run_analysis', [$this, 'ajaxRunAnalysis']); // Keep for backward compatibility
         add_action('wp_ajax_aiagent_execute_action', [$this, 'ajaxExecuteAction']);
         add_action('wp_ajax_aiagent_approve_action', [$this, 'ajaxApproveAction']);
@@ -865,7 +866,7 @@ class AIAgentModule
     }
 
     /**
-     * AJAX: Get analysis job progress
+     * AJAX: Get analysis job progress (lightweight - only reads state)
      *
      * @return void
      */
@@ -880,20 +881,55 @@ class AIAgentModule
         $jobManager = Container::resolve(AnalysisJobManager::class);
 
         try {
+            // فقط خواندن وضعیت - بدون پردازش
+            $progress = $jobManager->getJobProgress();
+            wp_send_json_success($progress);
+        } catch (\Exception $e) {
+            appLogger("[AIAgent] Get progress error: " . $e->getMessage());
+            wp_send_json_error(['message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * AJAX: Process analysis batch (long-running - handles LLM calls)
+     * این درخواست برای پردازش واقعی است و timeout بالایی دارد
+     *
+     * @return void
+     */
+    public function ajaxProcessBatch()
+    {
+        check_ajax_referer('aiagent_nonce', 'nonce');
+
+        if (!current_user_can('manage_woocommerce')) {
+            wp_send_json_error(['message' => __('دسترسی غیرمجاز', 'forooshyar')], 403);
+        }
+
+        // افزایش محدودیت زمان اجرا برای این درخواست
+        if (function_exists('set_time_limit')) {
+            set_time_limit(300); // 5 دقیقه
+        }
+        
+        // جلوگیری از بافر شدن خروجی
+        if (function_exists('ignore_user_abort')) {
+            ignore_user_abort(true);
+        }
+
+        $jobManager = Container::resolve(AnalysisJobManager::class);
+
+        try {
             $progress = $jobManager->getJobProgress();
             
-            // اگر کار در حال اجرا است، پردازش را فوری انجام بده
-            // این کار اطمینان می‌دهد که حتی اگر cron کار نکند، پردازش ادامه یابد
+            // اگر کار در حال اجرا است، پردازش کن
             if ($progress['is_running'] && !$progress['is_cancelling']) {
-                // پردازش یک batch در همین درخواست
-                $jobManager->processImmediately();
+                // پردازش یک batch
+                $jobManager->processNextBatch();
                 // دریافت پیشرفت به‌روز شده
                 $progress = $jobManager->getJobProgress();
             }
             
             wp_send_json_success($progress);
         } catch (\Exception $e) {
-            appLogger("[AIAgent] Get progress error: " . $e->getMessage());
+            appLogger("[AIAgent] Process batch error: " . $e->getMessage());
             wp_send_json_error(['message' => $e->getMessage()], 500);
         }
     }

@@ -1,13 +1,19 @@
 /**
  * AI Agent Admin JavaScript
  * اسکریپت مدیریت دستیار هوشمند فروش
+ * 
+ * معماری جدید:
+ * - یک درخواست پردازش (process) که LLM را فراخوانی می‌کند (timeout بالا)
+ * - یک درخواست polling سبک که فقط وضعیت را می‌خواند
  */
 (function($) {
     'use strict';
 
     var progressPollInterval = null;
+    var processingXhr = null; // درخواست پردازش فعلی
     var activityChart = null;
     var heartbeatEnabled = false;
+    var isProcessing = false; // آیا درخواست پردازش در حال اجرا است
 
     // Initialize when document is ready
     $(document).ready(function() {
@@ -20,17 +26,14 @@
 
     /**
      * Initialize WordPress Heartbeat API for job monitoring
-     * استفاده از Heartbeat API وردپرس برای نظارت پایدار بر کارها
      */
     function initHeartbeat() {
-        // اضافه کردن داده به Heartbeat
         $(document).on('heartbeat-send', function(e, data) {
             if (heartbeatEnabled) {
                 data.aiagent_check_job = true;
             }
         });
 
-        // دریافت پاسخ از Heartbeat
         $(document).on('heartbeat-tick', function(e, data) {
             if (data.aiagent_job_status) {
                 updateProgressUI(data.aiagent_job_status);
@@ -64,17 +67,14 @@
      * Initialize dashboard functionality
      */
     function initDashboard() {
-        // Start analysis button
         $('#run-analysis').on('click', function() {
             startAnalysis();
         });
 
-        // Cancel analysis button
         $('#cancel-analysis').on('click', function() {
             cancelAnalysis();
         });
 
-        // Check if there's an ongoing analysis
         checkOngoingAnalysis();
     }
 
@@ -82,58 +82,37 @@
      * Initialize action buttons
      */
     function initActions() {
-        // Execute action button (dashboard cards)
         $(document).on('click', '.btn-execute-action', function(e) {
             e.preventDefault();
             var actionId = $(this).data('id');
-            
-            if (!confirm('آیا از اجرای این اقدام اطمینان دارید؟')) {
-                return;
-            }
-
+            if (!confirm('آیا از اجرای این اقدام اطمینان دارید؟')) return;
             executeAction(actionId, $(this));
         });
 
-        // Approve action button (dashboard cards)
         $(document).on('click', '.btn-approve-action', function(e) {
             e.preventDefault();
             var actionId = $(this).data('id');
-            
-            if (!confirm('آیا از تأیید این اقدام اطمینان دارید؟')) {
-                return;
-            }
-
+            if (!confirm('آیا از تأیید این اقدام اطمینان دارید؟')) return;
             approveAction(actionId, $(this));
         });
 
-        // Legacy execute action button
         $(document).on('click', '.execute-action', function(e) {
             e.preventDefault();
             var actionId = $(this).data('id');
-            
-            if (!confirm(aiagentAdmin.strings.confirm)) {
-                return;
-            }
-
+            if (!confirm(aiagentAdmin.strings.confirm)) return;
             executeAction(actionId, $(this));
         });
 
-        // Legacy approve action button
         $(document).on('click', '.approve-action', function(e) {
             e.preventDefault();
             var actionId = $(this).data('id');
-            
-            if (!confirm(aiagentAdmin.strings.confirm)) {
-                return;
-            }
-
+            if (!confirm(aiagentAdmin.strings.confirm)) return;
             approveAction(actionId, $(this));
         });
     }
 
     /**
      * Start async analysis
-     * شروع تحلیل غیرهمزمان
      */
     function startAnalysis() {
         var $btn = $('#run-analysis');
@@ -156,11 +135,14 @@
                     $cancelBtn.show();
                     $btn.hide();
                     
-                    // فعال کردن Heartbeat و polling
                     heartbeatEnabled = true;
+                    
+                    // شروع polling سبک برای نمایش پیشرفت
                     startProgressPolling();
                     
-                    // تنظیم Heartbeat برای بررسی سریع‌تر
+                    // شروع پردازش در پس‌زمینه
+                    startProcessingLoop();
+                    
                     if (typeof wp !== 'undefined' && wp.heartbeat) {
                         wp.heartbeat.interval('fast');
                     }
@@ -179,13 +161,83 @@
     }
 
     /**
+     * Start the processing loop
+     * این تابع یک درخواست پردازش ارسال می‌کند و پس از اتمام، درخواست بعدی را ارسال می‌کند
+     */
+    function startProcessingLoop() {
+        if (isProcessing) return;
+        
+        processNextBatch();
+    }
+
+    /**
+     * Process next batch via dedicated AJAX endpoint
+     * این درخواست timeout بالایی دارد و منتظر پاسخ LLM می‌ماند
+     */
+    function processNextBatch() {
+        isProcessing = true;
+        
+        processingXhr = $.ajax({
+            url: aiagentAdmin.ajaxUrl,
+            type: 'POST',
+            timeout: 300000, // 5 دقیقه timeout
+            data: {
+                action: 'aiagent_process_batch',
+                nonce: aiagentAdmin.nonce
+            },
+            success: function(response) {
+                isProcessing = false;
+                
+                if (response.success) {
+                    updateProgressUI(response.data);
+                    
+                    var status = response.data.status;
+                    if (status === 'completed' || status === 'failed' || status === 'cancelled') {
+                        handleJobCompletion(response.data);
+                    } else if (status === 'running') {
+                        // ادامه پردازش با یک تأخیر کوتاه
+                        setTimeout(processNextBatch, 500);
+                    }
+                } else {
+                    // در صورت خطا، تلاش مجدد بعد از 5 ثانیه
+                    setTimeout(processNextBatch, 5000);
+                }
+            },
+            error: function(xhr, status, error) {
+                isProcessing = false;
+                
+                if (status === 'abort') {
+                    // درخواست لغو شده، کاری نکن
+                    return;
+                }
+                
+                console.log('Process batch error:', status, error);
+                // تلاش مجدد بعد از 5 ثانیه
+                setTimeout(processNextBatch, 5000);
+            }
+        });
+    }
+
+    /**
+     * Stop processing loop
+     */
+    function stopProcessingLoop() {
+        isProcessing = false;
+        if (processingXhr) {
+            processingXhr.abort();
+            processingXhr = null;
+        }
+    }
+
+    /**
      * Cancel running analysis
-     * لغو تحلیل در حال اجرا
      */
     function cancelAnalysis() {
         var $cancelBtn = $('#cancel-analysis');
-
         $cancelBtn.prop('disabled', true).text('در حال لغو...');
+
+        // ابتدا درخواست پردازش را لغو کن
+        stopProcessingLoop();
 
         $.ajax({
             url: aiagentAdmin.ajaxUrl,
@@ -199,7 +251,6 @@
                 stopProgressPolling();
                 resetAnalysisUI();
                 
-                // بازگرداندن Heartbeat به حالت عادی
                 if (typeof wp !== 'undefined' && wp.heartbeat) {
                     wp.heartbeat.interval('standard');
                 }
@@ -221,7 +272,6 @@
 
     /**
      * Check for ongoing analysis on page load
-     * بررسی تحلیل در حال اجرا هنگام بارگذاری صفحه
      */
     function checkOngoingAnalysis() {
         $.ajax({
@@ -238,9 +288,13 @@
                     $('#run-analysis').hide();
                     updateProgressUI(response.data);
                     
-                    // فعال کردن Heartbeat و polling
                     heartbeatEnabled = true;
                     startProgressPolling();
+                    
+                    // ادامه پردازش
+                    if (response.data.status === 'running') {
+                        startProcessingLoop();
+                    }
                     
                     if (typeof wp !== 'undefined' && wp.heartbeat) {
                         wp.heartbeat.interval('fast');
@@ -251,19 +305,20 @@
     }
 
     /**
-     * Start polling for progress updates
-     * شروع نظرسنجی برای بروزرسانی پیشرفت
+     * Start polling for progress updates (lightweight - only reads state)
+     * این polling فقط برای نمایش پیشرفت است و پردازشی انجام نمی‌دهد
      */
     function startProgressPolling() {
         if (progressPollInterval) {
             clearInterval(progressPollInterval);
         }
 
-        // نظرسنجی هر 3 ثانیه
+        // نظرسنجی هر 2 ثانیه (سبک است چون فقط وضعیت را می‌خواند)
         progressPollInterval = setInterval(function() {
             $.ajax({
                 url: aiagentAdmin.ajaxUrl,
                 type: 'POST',
+                timeout: 10000, // 10 ثانیه timeout
                 data: {
                     action: 'aiagent_get_analysis_progress',
                     nonce: aiagentAdmin.nonce
@@ -278,18 +333,17 @@
                     }
                 }
             });
-        }, 3000);
+        }, 2000);
     }
 
     /**
      * Handle job completion
-     * مدیریت اتمام کار
      */
     function handleJobCompletion(data) {
         heartbeatEnabled = false;
         stopProgressPolling();
+        stopProcessingLoop();
         
-        // بازگرداندن Heartbeat به حالت عادی
         if (typeof wp !== 'undefined' && wp.heartbeat) {
             wp.heartbeat.interval('standard');
         }
@@ -333,9 +387,10 @@
         
         if (data.current_item) {
             $('#current-item').text('در حال تحلیل: ' + data.current_item);
+        } else {
+            $('#current-item').text('');
         }
 
-        // Update status text
         var statusText = 'در حال تحلیل...';
         if (data.status === 'completed') {
             statusText = 'تحلیل کامل شد';
@@ -343,6 +398,8 @@
             statusText = 'خطا در تحلیل';
         } else if (data.status === 'cancelled') {
             statusText = 'تحلیل لغو شد';
+        } else if (data.is_cancelling) {
+            statusText = 'در حال لغو...';
         }
         $('.progress-status').text(statusText);
     }
@@ -382,9 +439,7 @@
             success: function(response) {
                 if (response.success) {
                     showNotice('success', 'اقدام با موفقیت اجرا شد');
-                    setTimeout(function() {
-                        location.reload();
-                    }, 1500);
+                    setTimeout(function() { location.reload(); }, 1500);
                 } else {
                     showNotice('error', response.data.message || 'خطا در اجرای اقدام');
                     $btn.prop('disabled', false).html(originalText);
@@ -415,9 +470,7 @@
             success: function(response) {
                 if (response.success) {
                     showNotice('success', 'اقدام تأیید شد');
-                    setTimeout(function() {
-                        location.reload();
-                    }, 1500);
+                    setTimeout(function() { location.reload(); }, 1500);
                 } else {
                     showNotice('error', response.data.message || 'خطا در تأیید اقدام');
                     $btn.prop('disabled', false).html(originalText);
@@ -435,11 +488,8 @@
      */
     function initActivityChart() {
         var $canvas = $('#activity-chart');
-        if ($canvas.length === 0 || typeof Chart === 'undefined') {
-            return;
-        }
+        if ($canvas.length === 0 || typeof Chart === 'undefined') return;
 
-        // Fetch stats for chart
         $.ajax({
             url: aiagentAdmin.ajaxUrl,
             type: 'POST',
@@ -460,21 +510,15 @@
      * Render activity chart
      */
     function renderActivityChart(canvas, dailyData) {
-        var labels = [];
-        var analysesData = [];
-        var actionsData = [];
+        var labels = [], analysesData = [], actionsData = [];
 
-        // Process daily data
         for (var i = 0; i < dailyData.length; i++) {
-            var item = dailyData[i];
-            labels.push(item.date);
-            analysesData.push(item.analyses || 0);
-            actionsData.push(item.actions || 0);
+            labels.push(dailyData[i].date);
+            analysesData.push(dailyData[i].analyses || 0);
+            actionsData.push(dailyData[i].actions || 0);
         }
 
-        if (activityChart) {
-            activityChart.destroy();
-        }
+        if (activityChart) activityChart.destroy();
 
         activityChart = new Chart(canvas, {
             type: 'line',
@@ -502,20 +546,8 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'top',
-                        rtl: true
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            stepSize: 1
-                        }
-                    }
-                }
+                plugins: { legend: { position: 'top', rtl: true } },
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
             }
         });
     }
@@ -524,23 +556,15 @@
      * Show admin notice
      */
     function showNotice(type, message) {
-        // Remove existing notices
         $('.aiagent-notice-temp').remove();
-        
         var $notice = $('<div class="notice notice-' + type + ' is-dismissible aiagent-notice-temp"><p>' + message + '</p></div>');
         $('.wrap h1').first().after($notice);
-        
-        // Auto dismiss after 5 seconds
-        setTimeout(function() {
-            $notice.fadeOut(function() {
-                $(this).remove();
-            });
-        }, 5000);
+        setTimeout(function() { $notice.fadeOut(function() { $(this).remove(); }); }, 5000);
     }
 
 })(jQuery);
 
-// Add spin animation for loading icons
+// Add spin animation
 var style = document.createElement('style');
 style.textContent = '@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } } .dashicons.spin { animation: spin 1s linear infinite; }';
 document.head.appendChild(style);
