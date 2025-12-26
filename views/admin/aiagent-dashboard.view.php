@@ -402,7 +402,7 @@ function aiagent_priority_class($score) {
                     <th style="width: 15%;"><?php _e('نوع اقدام', 'forooshyar'); ?></th>
                     <th style="width: 10%;"><?php _e('وضعیت', 'forooshyar'); ?></th>
                     <th style="width: 8%;"><?php _e('اولویت', 'forooshyar'); ?></th>
-                    <th style="width: 30%;"><?php _e('توضیحات هوش مصنوعی', 'forooshyar'); ?></th>
+                    <th style="width: 25%;"><?php _e('توضیحات هوش مصنوعی', 'forooshyar'); ?></th>
                     <th style="width: 15%;"><?php _e('تاریخ ایجاد', 'forooshyar'); ?></th>
                     <th style="width: 17%;"><?php _e('عملیات', 'forooshyar'); ?></th>
                 </tr>
@@ -411,11 +411,39 @@ function aiagent_priority_class($score) {
                 <?php foreach ($actionsData['items'] as $action): 
                     $actionData = $action['action_data'] ?? [];
                     $reasoning = $actionData['reasoning'] ?? '';
+                    
+                    // Get entity info for display
+                    $entityInfo = '';
+                    if (!empty($actionData['entity_type']) && !empty($actionData['entity_id'])) {
+                        $entityType = $actionData['entity_type'] === 'product' ? 'محصول' : 'مشتری';
+                        $entityInfo = $entityType . ' #' . $actionData['entity_id'];
+                        
+                        // Try to get product name
+                        if ($actionData['entity_type'] === 'product' && function_exists('wc_get_product')) {
+                            $product = wc_get_product($actionData['entity_id']);
+                            if ($product) {
+                                $entityInfo = $product->get_name();
+                            }
+                        }
+                    } elseif (!empty($actionData['product_id'])) {
+                        $entityInfo = 'محصول #' . $actionData['product_id'];
+                        if (function_exists('wc_get_product')) {
+                            $product = wc_get_product($actionData['product_id']);
+                            if ($product) {
+                                $entityInfo = $product->get_name();
+                            }
+                        }
+                    } elseif (!empty($actionData['customer_id'])) {
+                        $entityInfo = 'مشتری #' . $actionData['customer_id'];
+                    }
                 ?>
                 <tr>
                     <td><?php echo esc_html($action['id']); ?></td>
                     <td>
                         <strong><?php echo esc_html($actionTypeLabels[$action['action_type']] ?? $action['action_type']); ?></strong>
+                        <?php if ($entityInfo): ?>
+                        <br><small style="color: #666;"><?php echo esc_html($entityInfo); ?></small>
+                        <?php endif; ?>
                     </td>
                     <td>
                         <span style="display: inline-block; padding: 3px 8px; border-radius: 3px; font-size: 11px; background: <?php echo $statusColors[$action['status']] ?? '#ddd'; ?>; color: #fff;">
