@@ -11,7 +11,6 @@ use Forooshyar\Services\ErrorHandlingService;
 use Forooshyar\Services\TitleBuilder;
 use Forooshyar\Services\ApiLogService;
 use Forooshyar\Services\LogCleanupService;
-use Forooshyar\Modules\AIAgent\AIAgentModule;
 use Forooshyar\WPLite\Container;
 use Forooshyar\WPLite\Provider;
 use function Forooshyar\WPLite\appLogger;
@@ -19,25 +18,8 @@ use function Forooshyar\WPLite\appLogger;
 
 class AppServiceProvider extends Provider
 {
-    /** @var AIAgentModule|null */
-    private $aiAgentModule = null;
-
     public function register() {
  
-    }
-    
-    /**
-     * Register AI Agent Module
-     *
-     * @return void
-     */
-    private function registerAIAgentModule()
-    {
-        if (class_exists(AIAgentModule::class)) {
-            $this->aiAgentModule = new AIAgentModule();
-            $this->aiAgentModule->register();
-            appLogger('Forooshyar: AI Agent Module registered');
-        }
     }
     
     public function bootEarly() {
@@ -85,8 +67,6 @@ class AppServiceProvider extends Provider
                 }
             });
         });
-        // Register AI Agent Module
-        $this->registerAIAgentModule();
         
         // Register admin menu - moved from admin() method to ensure translations are loaded
         add_action('admin_menu', function() {
@@ -225,12 +205,6 @@ class AppServiceProvider extends Provider
     }
     
     public function boot() {
-        
-        // Boot AI Agent Module
-        if ($this->aiAgentModule !== null) {
-            $this->aiAgentModule->boot();
-            appLogger('Forooshyar: AI Agent Module booted');
-        }
     }
     
     public function ajax() {

@@ -10,7 +10,6 @@ class RouteDefinition
     private $route;
     private $type;
     private $method;
-    private $namespace;
 
     public function __construct(string $method, string $route, array $callable, string $type = 'rest')
     {
@@ -18,15 +17,6 @@ class RouteDefinition
         $this->route = $route;
         $this->callable = $callable;
         $this->type = $type;
-    }
-
-    public function namespace($value): self
-    {
-        if($this->type !== 'rest'){
-            return $this;
-        }
-        $this->namespace = $value;
-        return $this;
     }
 
     public function middleware(...$args)
@@ -86,11 +76,7 @@ class RouteDefinition
         $dynamic = $this->generateDynamicRoute($this->route);
 
         add_action('rest_api_init', function () use ($dynamic) {
-            $namespace =appConfig('app.api.namespace', 'wplite/v1');
-            if($this->namespace){
-                
-                $namespace = $this->namespace;
-            }
+            $namespace = appConfig('app.api.namespace', 'dnp/v1');
 
             register_rest_route($namespace, "/{$dynamic}", [
                 'methods' => $this->method,

@@ -2,8 +2,6 @@
 
 namespace WPLite;
 
-use WPLite\Facades\App;
-
 class ProviderManager
 {
     protected $providers = [];
@@ -19,7 +17,7 @@ class ProviderManager
         $providers = [
             \WPLite\Providers\RouteServiceProvider::class,
         ];
-        $providers = array_merge($providers, appConfig('app.providers', []));
+        $providers = array_merge($providers, Config::get('app.providers', []));
         foreach (get_declared_classes() as $declared) {
             if (strpos($declared, 'Src\\Provider\\') === 0 && !in_array($declared, $providers, true)) {
                 $providers[] = $declared;
@@ -51,8 +49,10 @@ class ProviderManager
             }
         });
 
-        foreach ($this->instances as $provider) {
-            $provider->admin();
+        if (is_admin()) {
+            foreach ($this->instances as $provider) {
+                $provider->admin();
+            }
         }
 
         if (wp_doing_ajax()) {
@@ -66,16 +66,20 @@ class ProviderManager
                 $provider->rest();
             }
         });
-        register_activation_hook(App::pluginFile(), function () {
+        register_activation_hook(WPLITE_FILE, function () {
             foreach ($this->instances as $provider) {
                 $provider->activate();
             }
         });
-        register_deactivation_hook(App::pluginFile(), function () {
+        register_deactivation_hook(WPLITE_FILE, function () {
             foreach ($this->instances as $provider) {
                 $provider->deactivate();
             }
         });
-        register_uninstall_hook(App::pluginFile(), [$this->instances, 'uninstall']);
+        register_uninstall_hook(WPLITE_FILE, function () {
+            foreach ($this->instances as $provider) {
+                $provider->uninstall();
+            }
+        });
     }
 }

@@ -1,23 +1,29 @@
 <?php
 
 namespace WPLite\Providers;
-use WPLite\Facades\App;
 use WPLite\Facades\Route;
 use WPLite\Provider;
 
 class RouteServiceProvider extends Provider
 {
-    public function onInit()
+    public function boot()
     {
-        if (is_admin()) {
-            Route::loadRoutesFile(App::pluginPath() . 'routes/admin.php');
-        }
-        
-        if (wp_doing_ajax()) {
-            Route::loadRoutesFile(App::pluginPath() . 'routes/ajax.php');
-        }
-        Route::loadRoutesFile(App::pluginPath() . 'routes/web.php');
+        // load frontend routes
+        Route::loadRoutesFile(WPLITE_PATH . 'routes/web.php');
 
-        Route::loadRoutesFile(App::pluginPath() . 'routes/rest.php');
+        // load admin routes
+        if (is_admin()) {
+            Route::loadRoutesFile(WPLITE_PATH . 'routes/admin.php');
+        }
+
+        // load ajax routes
+        if (wp_doing_ajax()) {
+            Route::loadRoutesFile(WPLITE_PATH . 'routes/ajax.php');
+        }
+
+        // load REST routes
+        add_action('rest_api_init', function () {
+            Route::loadRoutesFile(WPLITE_PATH . 'routes/rest.php');
+        });
     }
 }

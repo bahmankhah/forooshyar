@@ -1,26 +1,24 @@
 <?php
 
 namespace WPLite;
+use WPLite\Contracts\ShortcodeProvider;
 
-abstract class Shortcode
+abstract class Shortcode implements ShortcodeProvider
 {
  /**
      * The shortcode tag: [example]
-     * @var string
      */
-    protected $tag;
+    protected string $tag;
 
     /**
      * Shortcode attributes
-     * @var array
      */
-    protected $attributes = [];
+    protected array $attributes = [];
 
     /**
      * Shortcode content (if exists)
-     * @var string|null
      */
-    protected $content = null;
+    protected ?string $content = null;
 
     /**
      * Register the shortcode with WordPress
@@ -48,5 +46,5 @@ abstract class Shortcode
      * Render the output HTML
      * Must be implemented by child classes
      */
-    abstract public function render();
+    abstract public function render(): string;
 }

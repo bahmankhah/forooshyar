@@ -4,26 +4,22 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "e53889733c0df054299e26a4e3fe0673",
+    "content-hash": "60addc0cd1b78977bed711d6f9ac875b",
     "packages": [
         {
             "name": "hsm/wplite",
-            "version": "dev-main",
+            "version": "v1.0.4",
             "source": {
                 "type": "git",
                 "url": "https://github.com/bahmankhah/wplite.git",
-                "reference": "5d239cfbea46a9362ba25c6883b2831a14b8dae1"
+                "reference": "d0117bfffc04d73d5ac18b9c9865569f043c360a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/bahmankhah/wplite/zipball/5d239cfbea46a9362ba25c6883b2831a14b8dae1",
-                "reference": "5d239cfbea46a9362ba25c6883b2831a14b8dae1",
+                "url": "https://api.github.com/repos/bahmankhah/wplite/zipball/d0117bfffc04d73d5ac18b9c9865569f043c360a",
+                "reference": "d0117bfffc04d73d5ac18b9c9865569f043c360a",
                 "shasum": ""
             },
-            "require": {
-                "php": ">=7.4"
-            },
-            "default-branch": true,
             "type": "library",
             "autoload": {
                 "files": [
@@ -40,9 +36,9 @@
             "description": "WPLite WordPress Framework",
             "support": {
                 "issues": "https://github.com/bahmankhah/wplite/issues",
-                "source": "https://github.com/bahmankhah/wplite/tree/main"
+                "source": "https://github.com/bahmankhah/wplite/tree/v1.0.4"
             },
-            "time": "2025-12-26T21:30:59+00:00"
+            "time": "2025-11-21T13:20:26+00:00"
         }
     ],
     "packages-dev": [
@@ -2029,9 +2025,7 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {
-        "hsm/wplite": 20
-    },
+    "stability-flags": {},
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {

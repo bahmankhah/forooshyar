@@ -7,14 +7,13 @@ use WPLite\Facades\View;
 if (!function_exists('appConfig')) {
     function appConfig($key = null, $default = null)
     {
-        $configsName = (md5(App::pluginPath())) . '_wplite_configs';
-        global $$configsName;
+        global $wplite_configs;
         if ($key === null) {
-            return $$configsName;
+            return $wplite_configs;
         }
 
         $keys = explode('.', $key);
-        $value = $$configsName;
+        $value = $wplite_configs;
 
         foreach ($keys as $keyPart) {
             if (is_array($value) && array_key_exists($keyPart, $value)) {
@@ -33,7 +32,7 @@ if (!function_exists('appLogger')) {
         $message = (string) $message;
         // $plugin_dir = WP_PLUGIN_DIR . '/' . appConfig('app.name');
         $plugin_dir = App::pluginPath();
-        $log_file = $plugin_dir . 'logs/wplite-errors.log';
+        $log_file = $plugin_dir . '/logs/wplite-errors.log';
         // Ensure the directory exists
         $directory = dirname($log_file);
         if (!is_dir($directory)) {
@@ -94,7 +93,7 @@ if(!function_exists('view')){
         return View::render($path, $data);
     }
 }
-if(!function_exists('reverse')){
+if(!function_exists(('reverse'))){
     function reverse($routeName, $params = [], $prefix = null){
         /**
          * @var WPLite\RouteDefinition $routeDef
