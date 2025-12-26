@@ -23,7 +23,6 @@ class AppServiceProvider extends Provider
     private $aiAgentModule = null;
 
     public function register() {
-        appLogger('Forooshyar: register() method called');
         
         // Register AI Agent Module
         $this->registerAIAgentModule();
@@ -44,20 +43,16 @@ class AppServiceProvider extends Provider
     }
     
     public function bootEarly() {
-        appLogger('Forooshyar: bootEarly() method called');
     }
     
     public function admin() {
-        appLogger('Forooshyar: admin() method called - Admin initialization');
         // Admin initialization - register hooks but don't execute translation-dependent code yet
     }
     
     public function onInit() {
-        appLogger('Forooshyar: onInit() method called - Starting initialization');
         
         // Load Persian text domain - moved to plugins_loaded hook for WordPress 6.5+ compatibility
         add_action('plugins_loaded', function() {
-            appLogger('Forooshyar: plugins_loaded hook - Loading text domain');
             load_plugin_textdomain(
                 'forooshyar',
                 false,
@@ -94,10 +89,8 @@ class AppServiceProvider extends Provider
         
         // Register admin menu - moved from admin() method to ensure translations are loaded
         add_action('admin_menu', function() {
-            appLogger('Forooshyar: admin_menu hook - Registering admin menu');
             $adminController = new \Forooshyar\Controllers\AdminController();
             $adminController->registerAdminMenu();
-            appLogger('Forooshyar: Admin menu registered successfully');
         }, 30);
         
         // Enqueue admin scripts and styles - moved from admin() method
@@ -158,13 +151,10 @@ class AppServiceProvider extends Provider
                 wp_enqueue_style('wp-admin');
                 wp_enqueue_style('dashicons');
                 
-                appLogger('Forooshyar: Admin assets enqueued successfully');
             } else {
-                appLogger('Forooshyar: Skipping asset enqueue - not a forooshyar page');
             }
         });
         
-        appLogger('Forooshyar: Starting service registration');
         // Register services with proper dependencies
         Container::bind(ConfigService::class, function(){
             return new ConfigService();
@@ -234,7 +224,6 @@ class AppServiceProvider extends Provider
     }
     
     public function boot() {
-        appLogger('Forooshyar: boot() method called');
         
         // Boot AI Agent Module
         if ($this->aiAgentModule !== null) {
@@ -244,11 +233,9 @@ class AppServiceProvider extends Provider
     }
     
     public function ajax() {
-        appLogger('Forooshyar: ajax() method called');
     }
     
     public function rest() {
-        appLogger('Forooshyar: rest() method called');
     }
     
     public function activate() {

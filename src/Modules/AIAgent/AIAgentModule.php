@@ -20,6 +20,7 @@ use Forooshyar\Modules\AIAgent\Services\CustomerAnalyzer;
 use Forooshyar\Modules\AIAgent\Services\Logger;
 use Forooshyar\Modules\AIAgent\Services\NotificationService;
 use Forooshyar\Modules\AIAgent\Services\AnalysisJobManager;
+use Forooshyar\Modules\AIAgent\Services\ActionSchedulerJobManager;
 use Forooshyar\Modules\AIAgent\Services\ContextManager;
 use Forooshyar\Modules\AIAgent\Services\ScheduledTaskService;
 use Forooshyar\Modules\AIAgent\Services\LLM\LLMFactory;
@@ -295,9 +296,21 @@ class AIAgentModule
             );
         });
 
-        // Analysis Job Manager
+        // Analysis Job Manager (Legacy - for backward compatibility)
         Container::bind(AnalysisJobManager::class, function () {
             return new AnalysisJobManager(
+                Container::resolve(ProductAnalyzer::class),
+                Container::resolve(CustomerAnalyzer::class),
+                Container::resolve(SubscriptionManager::class),
+                Container::resolve(SettingsManager::class),
+                Container::resolve(DatabaseService::class),
+                Container::resolve(ActionExecutor::class)
+            );
+        });
+
+        // Action Scheduler Job Manager (New - recommended)
+        Container::bind(ActionSchedulerJobManager::class, function () {
+            return new ActionSchedulerJobManager(
                 Container::resolve(ProductAnalyzer::class),
                 Container::resolve(CustomerAnalyzer::class),
                 Container::resolve(SubscriptionManager::class),

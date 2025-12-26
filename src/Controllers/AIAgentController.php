@@ -14,6 +14,7 @@ use Forooshyar\Modules\AIAgent\Services\AIAgentService;
 use Forooshyar\Modules\AIAgent\Services\DatabaseService;
 use Forooshyar\Modules\AIAgent\Services\ActionExecutor;
 use Forooshyar\Modules\AIAgent\Services\AnalysisJobManager;
+use Forooshyar\Modules\AIAgent\Services\ActionSchedulerJobManager;
 use Forooshyar\Modules\AIAgent\Services\SettingsManager;
 use Forooshyar\Modules\AIAgent\Services\SubscriptionManager;
 use Forooshyar\Modules\AIAgent\Services\ProductAnalyzer;
@@ -93,7 +94,8 @@ class AIAgentController extends Controller
             $migrations->run();
         }
 
-        $jobManager = Container::resolve(AnalysisJobManager::class);
+        // Use Action Scheduler-based job manager (recommended)
+        $jobManager = Container::resolve(ActionSchedulerJobManager::class);
 
         try {
             $result = $jobManager->startJob($type);
@@ -120,7 +122,8 @@ class AIAgentController extends Controller
             wp_send_json_error(['message' => __('دسترسی غیرمجاز', 'forooshyar')], 403);
         }
 
-        $jobManager = Container::resolve(AnalysisJobManager::class);
+        // Use Action Scheduler-based job manager
+        $jobManager = Container::resolve(ActionSchedulerJobManager::class);
 
         try {
             $result = $jobManager->cancelJob();
@@ -147,7 +150,8 @@ class AIAgentController extends Controller
             wp_send_json_error(['message' => __('دسترسی غیرمجاز', 'forooshyar')], 403);
         }
 
-        $jobManager = Container::resolve(AnalysisJobManager::class);
+        // Use Action Scheduler-based job manager
+        $jobManager = Container::resolve(ActionSchedulerJobManager::class);
 
         try {
             $progress = $jobManager->getJobProgress();
@@ -159,7 +163,8 @@ class AIAgentController extends Controller
     }
 
     /**
-     * Process analysis batch (long-running - handles LLM calls)
+     * Process analysis batch (legacy - Action Scheduler handles this automatically)
+     * This endpoint is kept for backward compatibility but does nothing when using Action Scheduler
      *
      * @return void
      */
@@ -169,25 +174,12 @@ class AIAgentController extends Controller
             wp_send_json_error(['message' => __('دسترسی غیرمجاز', 'forooshyar')], 403);
         }
 
-        // Increase execution time for this request
-        if (function_exists('set_time_limit')) {
-            set_time_limit(300);
-        }
-        
-        if (function_exists('ignore_user_abort')) {
-            ignore_user_abort(true);
-        }
-
-        $jobManager = Container::resolve(AnalysisJobManager::class);
+        // With Action Scheduler, processing happens automatically in the background
+        // This endpoint just returns the current progress
+        $jobManager = Container::resolve(ActionSchedulerJobManager::class);
 
         try {
             $progress = $jobManager->getJobProgress();
-            
-            if ($progress['is_running'] && !$progress['is_cancelling']) {
-                $jobManager->processNextBatch();
-                $progress = $jobManager->getJobProgress();
-            }
-            
             wp_send_json_success($progress);
         } catch (\Exception $e) {
             appLogger("[AIAgent] Process batch error: " . $e->getMessage());
@@ -206,7 +198,8 @@ class AIAgentController extends Controller
             wp_send_json_error(['message' => __('دسترسی غیرمجاز', 'forooshyar')], 403);
         }
 
-        $jobManager = Container::resolve(AnalysisJobManager::class);
+        // Use Action Scheduler-based job manager
+        $jobManager = Container::resolve(ActionSchedulerJobManager::class);
 
         try {
             $jobManager->acknowledgeCompletion();

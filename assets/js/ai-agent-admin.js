@@ -2,18 +2,17 @@
  * AI Agent Admin JavaScript
  * اسکریپت مدیریت دستیار هوشمند فروش
  * 
- * معماری جدید:
- * - یک درخواست پردازش (process) که LLM را فراخوانی می‌کند (timeout بالا)
- * - یک درخواست polling سبک که فقط وضعیت را می‌خواند
+ * معماری جدید با Action Scheduler:
+ * - پردازش در پس‌زمینه توسط Action Scheduler انجام می‌شود
+ * - فقط یک درخواست polling سبک برای نمایش پیشرفت
+ * - نیازی به باز بودن مرورگر نیست
  */
 (function($) {
     'use strict';
 
     var progressPollInterval = null;
-    var processingXhr = null; // درخواست پردازش فعلی
     var activityChart = null;
     var heartbeatEnabled = false;
-    var isProcessing = false; // آیا درخواست پردازش در حال اجرا است
 
     // Initialize when document is ready
     $(document).ready(function() {
@@ -112,7 +111,7 @@
     }
 
     /**
-     * Start async analysis
+     * Start async analysis (using Action Scheduler)
      */
     function startAnalysis() {
         var $btn = $('#run-analysis');
@@ -137,17 +136,16 @@
                     
                     heartbeatEnabled = true;
                     
-                    // شروع polling سبک برای نمایش پیشرفت
+                    // شروع polling برای نمایش پیشرفت
+                    // با Action Scheduler، پردازش در پس‌زمینه انجام می‌شود
+                    // و نیازی به باز بودن مرورگر نیست
                     startProgressPolling();
-                    
-                    // شروع پردازش در پس‌زمینه
-                    startProcessingLoop();
                     
                     if (typeof wp !== 'undefined' && wp.heartbeat) {
                         wp.heartbeat.interval('fast');
                     }
                     
-                    showNotice('success', 'تحلیل شروع شد');
+                    showNotice('success', 'تحلیل شروع شد. پردازش در پس‌زمینه انجام می‌شود و می‌توانید این صفحه را ببندید.');
                 } else {
                     $btn.prop('disabled', false).html('<span class="dashicons dashicons-chart-bar"></span> شروع تحلیل');
                     showNotice('error', response.data.message || response.data.error || 'خطا در شروع تحلیل');
@@ -161,98 +159,11 @@
     }
 
     /**
-     * Start the processing loop
-     * این تابع یک درخواست پردازش ارسال می‌کند و پس از اتمام، درخواست بعدی را ارسال می‌کند
-     */
-    function startProcessingLoop() {
-        if (isProcessing) return;
-        
-        processNextBatch();
-    }
-
-    /**
-     * Process next batch via dedicated AJAX endpoint
-     * این درخواست timeout بالایی دارد و منتظر پاسخ LLM می‌ماند
-     */
-    function processNextBatch() {
-        isProcessing = true;
-        console.log('[AIAgent] شروع پردازش batch...');
-        
-        processingXhr = $.ajax({
-            url: aiagentAdmin.ajaxUrl,
-            type: 'POST',
-            timeout: 300000, // 5 دقیقه timeout
-            data: {
-                action: 'aiagent_process_batch',
-                nonce: aiagentAdmin.nonce
-            },
-            success: function(response) {
-                isProcessing = false;
-                console.log('[AIAgent] پاسخ batch دریافت شد:', response.data);
-                
-                if (response.success) {
-                    updateProgressUI(response.data);
-                    
-                    var status = response.data.status;
-                    if (status === 'completed' || status === 'failed' || status === 'cancelled') {
-                        console.log('[AIAgent] کار تمام شد با وضعیت:', status);
-                        handleJobCompletion(response.data);
-                    } else if (status === 'running') {
-                        // ادامه پردازش با یک تأخیر کوتاه
-                        console.log('[AIAgent] ادامه پردازش batch بعدی...');
-                        setTimeout(processNextBatch, 500);
-                    }
-                } else {
-                    // در صورت خطا، تلاش مجدد بعد از 5 ثانیه
-                    console.log('[AIAgent] خطا در پردازش batch، تلاش مجدد در 5 ثانیه...');
-                    setTimeout(processNextBatch, 5000);
-                }
-            },
-            error: function(xhr, status, error) {
-                isProcessing = false;
-                
-                if (status === 'abort') {
-                    // درخواست لغو شده، کاری نکن
-                    console.log('[AIAgent] درخواست لغو شد');
-                    return;
-                }
-                
-                console.log('[AIAgent] خطای batch:', status, error);
-                
-                if (status === 'timeout') {
-                    // نمایش پیام به کاربر برای رفرش صفحه
-                    showNotice('warning', 'زمان درخواست به پایان رسید. لطفاً صفحه را رفرش کنید تا پردازش ادامه یابد.');
-                    alert('زمان درخواست پردازش به پایان رسید.\n\nلطفاً صفحه را رفرش کنید تا پردازش باقی‌مانده ادامه یابد.\n\nتحلیل‌های انجام شده ذخیره شده‌اند.');
-                    return; // توقف تلاش مجدد - کاربر باید رفرش کند
-                }
-                
-                // برای سایر خطاها، تلاش مجدد بعد از 5 ثانیه
-                console.log('[AIAgent] تلاش مجدد در 5 ثانیه...');
-                setTimeout(processNextBatch, 5000);
-            }
-        });
-    }
-
-    /**
-     * Stop processing loop
-     */
-    function stopProcessingLoop() {
-        isProcessing = false;
-        if (processingXhr) {
-            processingXhr.abort();
-            processingXhr = null;
-        }
-    }
-
-    /**
      * Cancel running analysis
      */
     function cancelAnalysis() {
         var $cancelBtn = $('#cancel-analysis');
         $cancelBtn.prop('disabled', true).text('در حال لغو...');
-
-        // ابتدا درخواست پردازش را لغو کن
-        stopProcessingLoop();
 
         $.ajax({
             url: aiagentAdmin.ajaxUrl,
@@ -318,7 +229,7 @@
                 
                 // اگر کار در حال اجرا یا لغو است
                 if (status === 'running' || status === 'cancelling') {
-                    console.log('[AIAgent] کار در حال اجرا یافت شد، ادامه پردازش...');
+                    console.log('[AIAgent] کار در حال اجرا یافت شد');
                     $('#analysis-progress-section').show();
                     $('#cancel-analysis').show();
                     $('#run-analysis').hide();
@@ -327,35 +238,32 @@
                     heartbeatEnabled = true;
                     startProgressPolling();
                     
-                    // ادامه پردازش
-                    if (status === 'running') {
-                        console.log('[AIAgent] شروع مجدد حلقه پردازش...');
-                        startProcessingLoop();
-                    }
-                    
                     if (typeof wp !== 'undefined' && wp.heartbeat) {
                         wp.heartbeat.interval('fast');
                     }
+                    
+                    // نمایش پیام که پردازش در پس‌زمینه انجام می‌شود
+                    showNotice('info', 'تحلیل در پس‌زمینه در حال انجام است. می‌توانید این صفحه را ببندید.');
                 }
             }
         });
     }
 
     /**
-     * Start polling for progress updates (lightweight - only reads state)
-     * این polling فقط برای نمایش پیشرفت است و پردازشی انجام نمی‌دهد
+     * Start polling for progress updates
+     * با Action Scheduler، این فقط برای نمایش پیشرفت است
      */
     function startProgressPolling() {
         if (progressPollInterval) {
             clearInterval(progressPollInterval);
         }
 
-        // نظرسنجی هر 2 ثانیه (سبک است چون فقط وضعیت را می‌خواند)
+        // نظرسنجی هر 3 ثانیه
         progressPollInterval = setInterval(function() {
             $.ajax({
                 url: aiagentAdmin.ajaxUrl,
                 type: 'POST',
-                timeout: 10000, // 10 ثانیه timeout
+                timeout: 10000,
                 data: {
                     action: 'aiagent_get_analysis_progress',
                     nonce: aiagentAdmin.nonce
@@ -370,7 +278,7 @@
                     }
                 }
             });
-        }, 2000);
+        }, 3000);
     }
 
     /**
@@ -379,7 +287,6 @@
     function handleJobCompletion(data) {
         heartbeatEnabled = false;
         stopProgressPolling();
-        stopProcessingLoop();
         
         if (typeof wp !== 'undefined' && wp.heartbeat) {
             wp.heartbeat.interval('standard');
@@ -437,6 +344,13 @@
         } else {
             $('#current-item').text('');
         }
+        
+        // نمایش تعداد کارهای در صف (Action Scheduler)
+        if (data.pending_actions !== undefined && data.pending_actions > 0) {
+            $('#pending-queue').text('در صف: ' + data.pending_actions + ' مورد');
+        } else {
+            $('#pending-queue').text('');
+        }
 
         var statusText = 'در حال تحلیل...';
         if (data.status === 'completed') {
@@ -465,6 +379,7 @@
         $('#progress-customers').text('مشتریان: 0/0');
         $('#progress-actions').text('اقدامات: 0');
         $('#current-item').text('');
+        $('#pending-queue').text('');
         $('.progress-status').text('در حال تحلیل...');
     }
 
@@ -604,12 +519,10 @@
      */
     function showNotice(type, message) {
         $('.aiagent-notice-temp').remove();
-        // Map warning to WordPress notice type
         var noticeType = type === 'warning' ? 'warning' : type;
         var $notice = $('<div class="notice notice-' + noticeType + ' is-dismissible aiagent-notice-temp"><p>' + message + '</p></div>');
         $('.wrap h1').first().after($notice);
-        // Don't auto-hide warnings
-        if (type !== 'warning') {
+        if (type !== 'warning' && type !== 'info') {
             setTimeout(function() { $notice.fadeOut(function() { $(this).remove(); }); }, 5000);
         }
     }
