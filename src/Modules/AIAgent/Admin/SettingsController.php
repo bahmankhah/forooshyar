@@ -32,16 +32,15 @@ class SettingsController
 
     /**
      * Register settings page hooks
+     * Note: AJAX routes are now defined in routes/ajax.php using AIAgentController
      *
      * @return void
      */
     public function register()
     {
         add_action('admin_init', [$this, 'initSettings']);
-        add_action('wp_ajax_aiagent_save_settings', [$this, 'ajaxSaveSettings']);
-        add_action('wp_ajax_aiagent_reset_settings', [$this, 'ajaxResetSettings']);
-        add_action('wp_ajax_aiagent_export_settings', [$this, 'ajaxExportSettings']);
-        add_action('wp_ajax_aiagent_import_settings', [$this, 'ajaxImportSettings']);
+        // AJAX routes are now registered via routes/ajax.php
+        // See AIAgentController for handler implementations
     }
 
     /**

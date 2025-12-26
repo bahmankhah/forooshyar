@@ -611,6 +611,23 @@ class AnalysisJobManager
     {
         $state = get_option(self::OPTION_JOB_STATE, null);
         
+        // اگر وضعیت موجود است و کامل/لغو/شکست خورده، آن را برگردان
+        if ($state && in_array($state['status'], [self::STATUS_COMPLETED, self::STATUS_CANCELLED, self::STATUS_FAILED], true)) {
+            return $state;
+        }
+        
+        // اگر وضعیت موجود است و در حال اجرا، بررسی کن که آیا در دیتابیس هم همین وضعیت است
+        if ($state && $state['status'] === self::STATUS_RUNNING) {
+            // بررسی دیتابیس برای اطمینان از همگام بودن
+            $dbState = $this->loadJobFromDatabaseAnyStatus();
+            if ($dbState && $dbState['status'] !== self::STATUS_RUNNING) {
+                // دیتابیس وضعیت متفاوتی دارد، از آن استفاده کن
+                $this->saveJobState($dbState);
+                return $dbState;
+            }
+            return $state;
+        }
+        
         if (!$state) {
             // بررسی دیتابیس برای کار ذخیره شده
             $state = $this->loadJobFromDatabase();
@@ -624,7 +641,7 @@ class AnalysisJobManager
     }
 
     /**
-     * بارگذاری کار از دیتابیس
+     * بارگذاری کار از دیتابیس (فقط pending)
      *
      * @return array|null
      */
@@ -650,6 +667,39 @@ class AnalysisJobManager
         
         return null;
     }
+    
+    /**
+     * بارگذاری آخرین کار از دیتابیس (هر وضعیتی)
+     *
+     * @return array|null
+     */
+    private function loadJobFromDatabaseAnyStatus()
+    {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aiagent_scheduled';
+        
+        $row = $wpdb->get_row($wpdb->prepare(
+            "SELECT task_data, status FROM {$table} WHERE task_type = %s ORDER BY id DESC LIMIT 1",
+            'analysis_job'
+        ));
+        
+        if ($row && !empty($row->task_data)) {
+            $data = json_decode($row->task_data, true);
+            if ($data) {
+                // اگر وضعیت در task_data با وضعیت رکورد متفاوت است، از وضعیت رکورد استفاده کن
+                if ($row->status === 'completed') {
+                    $data['status'] = self::STATUS_COMPLETED;
+                } elseif ($row->status === 'cancelled') {
+                    $data['status'] = self::STATUS_CANCELLED;
+                } elseif ($row->status === 'failed') {
+                    $data['status'] = self::STATUS_FAILED;
+                }
+                return $data;
+            }
+        }
+        
+        return null;
+    }
 
     /**
      * دریافت پیشرفت کار برای نمایش
@@ -660,38 +710,67 @@ class AnalysisJobManager
     {
         $state = $this->getJobState();
         
+        // اگر وضعیت idle است، یعنی هیچ کاری در حال اجرا نیست
+        if ($state['status'] === self::STATUS_IDLE) {
+            return [
+                'status' => self::STATUS_IDLE,
+                'job_id' => null,
+                'is_running' => false,
+                'is_cancelling' => false,
+                'progress' => 0,
+                'percentage' => 0,
+                'products_total' => 0,
+                'products_analyzed' => 0,
+                'products_processed' => 0,
+                'products_failed' => 0,
+                'customers_total' => 0,
+                'customers_analyzed' => 0,
+                'customers_processed' => 0,
+                'customers_failed' => 0,
+                'actions_created' => 0,
+                'current_item' => null,
+                'errors' => [],
+                'started_at' => null,
+                'updated_at' => null,
+                'completed_at' => null,
+            ];
+        }
+        
         $totalItems = $state['products_total'] + $state['customers_total'];
         $processedItems = $state['products_processed'] + $state['customers_processed'];
         $percentage = $totalItems > 0 ? round(($processedItems / $totalItems) * 100) : 0;
 
         // فرمت مورد جاری برای نمایش
         $currentItemText = null;
-        if ($state['current_item']) {
+        if (!empty($state['current_item'])) {
             $type = $state['current_item']['type'] === 'product' ? 'محصول' : 'مشتری';
             $currentItemText = $type . ' #' . $state['current_item']['id'];
         }
 
         return [
             'status' => $state['status'],
-            'job_id' => $state['id'] ?? null,
+            'job_id' => isset($state['id']) ? $state['id'] : null,
             'is_running' => $state['status'] === self::STATUS_RUNNING,
             'is_cancelling' => $state['status'] === self::STATUS_CANCELLING,
+            'is_completed' => $state['status'] === self::STATUS_COMPLETED,
+            'is_failed' => $state['status'] === self::STATUS_FAILED,
+            'is_cancelled' => $state['status'] === self::STATUS_CANCELLED,
             'progress' => $percentage,
             'percentage' => $percentage,
-            'products_total' => $state['products_total'],
-            'products_analyzed' => $state['products_success'],
-            'products_processed' => $state['products_processed'],
-            'products_failed' => $state['products_failed'],
-            'customers_total' => $state['customers_total'],
-            'customers_analyzed' => $state['customers_success'],
-            'customers_processed' => $state['customers_processed'],
-            'customers_failed' => $state['customers_failed'],
-            'actions_created' => $state['actions_created'],
+            'products_total' => isset($state['products_total']) ? $state['products_total'] : 0,
+            'products_analyzed' => isset($state['products_success']) ? $state['products_success'] : 0,
+            'products_processed' => isset($state['products_processed']) ? $state['products_processed'] : 0,
+            'products_failed' => isset($state['products_failed']) ? $state['products_failed'] : 0,
+            'customers_total' => isset($state['customers_total']) ? $state['customers_total'] : 0,
+            'customers_analyzed' => isset($state['customers_success']) ? $state['customers_success'] : 0,
+            'customers_processed' => isset($state['customers_processed']) ? $state['customers_processed'] : 0,
+            'customers_failed' => isset($state['customers_failed']) ? $state['customers_failed'] : 0,
+            'actions_created' => isset($state['actions_created']) ? $state['actions_created'] : 0,
             'current_item' => $currentItemText,
-            'errors' => \array_slice($state['errors'], -5),
-            'started_at' => $state['started_at'] ?? null,
-            'updated_at' => $state['updated_at'] ?? null,
-            'completed_at' => $state['completed_at'] ?? null,
+            'errors' => isset($state['errors']) ? \array_slice($state['errors'], -5) : [],
+            'started_at' => isset($state['started_at']) ? $state['started_at'] : null,
+            'updated_at' => isset($state['updated_at']) ? $state['updated_at'] : null,
+            'completed_at' => isset($state['completed_at']) ? $state['completed_at'] : null,
         ];
     }
 
@@ -710,6 +789,23 @@ class AnalysisJobManager
         global $wpdb;
         $table = $wpdb->prefix . 'aiagent_scheduled';
         $wpdb->delete($table, ['task_type' => 'analysis_job', 'status' => 'pending']);
+    }
+    
+    /**
+     * تأیید اتمام کار و پاکسازی وضعیت
+     * این متد پس از نمایش نتیجه به کاربر فراخوانی می‌شود
+     *
+     * @return void
+     */
+    public function acknowledgeCompletion()
+    {
+        $state = $this->getJobState();
+        
+        // فقط اگر کار تمام شده باشد، وضعیت را پاک کن
+        if (in_array($state['status'], [self::STATUS_COMPLETED, self::STATUS_CANCELLED, self::STATUS_FAILED], true)) {
+            delete_option(self::OPTION_JOB_STATE);
+            appLogger("[AIAgent] وضعیت کار پاک شد پس از تأیید اتمام");
+        }
     }
 
     /**

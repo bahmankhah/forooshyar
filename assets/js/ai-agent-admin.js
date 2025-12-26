@@ -282,7 +282,26 @@
                 nonce: aiagentAdmin.nonce
             },
             success: function(response) {
-                if (response.success && (response.data.status === 'running' || response.data.status === 'cancelling')) {
+                if (!response.success) return;
+                
+                var status = response.data.status;
+                
+                // اگر کار تمام شده، لغو شده یا شکست خورده، وضعیت را پاک کن
+                if (status === 'completed' || status === 'failed' || status === 'cancelled') {
+                    // تأیید اتمام
+                    $.ajax({
+                        url: aiagentAdmin.ajaxUrl,
+                        type: 'POST',
+                        data: {
+                            action: 'aiagent_acknowledge_completion',
+                            nonce: aiagentAdmin.nonce
+                        }
+                    });
+                    return;
+                }
+                
+                // اگر کار در حال اجرا یا لغو است
+                if (status === 'running' || status === 'cancelling') {
                     $('#analysis-progress-section').show();
                     $('#cancel-analysis').show();
                     $('#run-analysis').hide();
@@ -292,7 +311,7 @@
                     startProgressPolling();
                     
                     // ادامه پردازش
-                    if (response.data.status === 'running') {
+                    if (status === 'running') {
                         startProcessingLoop();
                     }
                     
@@ -347,6 +366,16 @@
         if (typeof wp !== 'undefined' && wp.heartbeat) {
             wp.heartbeat.interval('standard');
         }
+        
+        // تأیید اتمام و پاکسازی وضعیت در سرور
+        $.ajax({
+            url: aiagentAdmin.ajaxUrl,
+            type: 'POST',
+            data: {
+                action: 'aiagent_acknowledge_completion',
+                nonce: aiagentAdmin.nonce
+            }
+        });
         
         if (data.status === 'completed') {
             showNotice('success', 'تحلیل با موفقیت انجام شد. محصولات: ' + data.products_analyzed + '/' + data.products_total + '، اقدامات: ' + data.actions_created);
