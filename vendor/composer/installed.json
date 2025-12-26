@@ -7,18 +7,18 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/bahmankhah/wplite.git",
-                "reference": "5369e0a2119470bf6db0fe2a5ae14a7efde88dcd"
+                "reference": "5d239cfbea46a9362ba25c6883b2831a14b8dae1"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/bahmankhah/wplite/zipball/5369e0a2119470bf6db0fe2a5ae14a7efde88dcd",
-                "reference": "5369e0a2119470bf6db0fe2a5ae14a7efde88dcd",
+                "url": "https://api.github.com/repos/bahmankhah/wplite/zipball/5d239cfbea46a9362ba25c6883b2831a14b8dae1",
+                "reference": "5d239cfbea46a9362ba25c6883b2831a14b8dae1",
                 "shasum": ""
             },
             "require": {
                 "php": ">=7.4"
             },
-            "time": "2025-12-26T20:45:15+00:00",
+            "time": "2025-12-26T21:30:59+00:00",
             "default-branch": true,
             "type": "library",
             "installation-source": "dist",
