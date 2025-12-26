@@ -21,7 +21,7 @@ if (!defined('ABSPATH')) {
                 <span class="forooshyar-current-date" data-tooltip-fa="<?php _e('تاریخ شمسی امروز', 'forooshyar'); ?>"></span>
                 <span class="forooshyar-current-time" data-tooltip-fa="<?php _e('ساعت فعلی', 'forooshyar'); ?>"></span>
                 <span class="forooshyar-version" data-tooltip-fa="<?php _e('نسخه افزونه', 'forooshyar'); ?>">
-                    <?php _e('نسخه', 'forooshyar'); ?> ۱.۰.۰
+                    <?php _e('نسخه', 'forooshyar'); ?> ۲.۰.۰
                 </span>
             </div>
         </div>
@@ -48,12 +48,7 @@ if (!defined('ABSPATH')) {
            class="nav-tab <?php echo ($current_tab === 'api') ? 'nav-tab-active' : ''; ?>">
             <?php _e('محدودیت‌های API', 'forooshyar'); ?>
         </a>
-        <?php // AI Agent tab is always visible ?>
-        <a href="?page=forooshyar&tab=aiagent" 
-           class="nav-tab <?php echo ($current_tab === 'aiagent') ? 'nav-tab-active' : ''; ?>">
-            <span class="dashicons dashicons-chart-line" style="font-size: 16px; vertical-align: middle; margin-left: 5px;"></span>
-            <?php _e('دستیار هوشمند', 'forooshyar'); ?>
-        </a>
+
         <!-- <a href="?page=forooshyar&tab=advanced" 
            class="nav-tab <?php echo ($current_tab === 'advanced') ? 'nav-tab-active' : ''; ?>">
             <?php _e('پیشرفته', 'forooshyar'); ?>
@@ -83,17 +78,13 @@ if (!defined('ABSPATH')) {
                     break;
                 case 'advanced':
                     include __DIR__ . '/partials/advanced-tab.view.php';
-                    break;
-                case 'aiagent':
-                    include __DIR__ . '/partials/aiagent-tab.view.php';
-                    break;
+
                 default:
                     include __DIR__ . '/partials/general-tab.view.php';
             }
             ?>
         </div>
 
-        <?php if ($current_tab !== 'aiagent'): ?>
         <div class="forooshyar-form-actions">
             <button type="submit" class="button button-primary button-large" id="forooshyar-save-btn">
                 <?php _e('ذخیره تنظیمات', 'forooshyar'); ?>
@@ -110,7 +101,6 @@ if (!defined('ABSPATH')) {
                 <?php _e('وارد کردن تنظیمات', 'forooshyar'); ?>
             </button>
         </div>
-        <?php endif; ?>
     </form>
 
     <div id="forooshyar-messages" class="forooshyar-messages"></div>

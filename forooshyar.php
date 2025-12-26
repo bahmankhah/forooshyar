@@ -5,7 +5,7 @@ use function Forooshyar\WPLite\appLogger;
 /**
  * Plugin Name: فروشیار
  * Description: WPLite Powered Wordpress Plugin.
- * Version: 1.0
+ * Version: 2.0.0
  * Author: Hesam
  */
 
