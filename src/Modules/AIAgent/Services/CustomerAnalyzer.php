@@ -9,6 +9,7 @@ namespace Forooshyar\Modules\AIAgent\Services;
 
 use Forooshyar\Modules\AIAgent\Contracts\AnalyzerInterface;
 use Forooshyar\Modules\AIAgent\Contracts\LLMProviderInterface;
+use function Forooshyar\WPLite\appLogger;
 
 class CustomerAnalyzer implements AnalyzerInterface
 {
@@ -89,9 +90,10 @@ class CustomerAnalyzer implements AnalyzerInterface
      * Analyze a single customer
      *
      * @param int $entityId
+     * @param bool $dryRun If true, don't save to database
      * @return array
      */
-    public function analyzeEntity($entityId)
+    public function analyzeEntity($entityId, $dryRun = false)
     {
         $customer = new \WC_Customer($entityId);
         if (!$customer->get_id()) {
@@ -115,28 +117,41 @@ class CustomerAnalyzer implements AnalyzerInterface
 
         $parsed = $this->parseResponse($response);
 
-        // Save to database
-        $analysisId = $this->database->saveAnalysis([
-            'analysis_type' => 'customer_analysis',
-            'entity_id' => $entityId,
-            'entity_type' => 'customer',
-            'analysis_data' => $parsed['analysis'],
-            'suggestions' => $parsed['suggestions'],
-            'priority_score' => $parsed['priority_score'],
-            'llm_provider' => $this->llm->getProviderName(),
-            'llm_model' => $this->settings->get('llm_model'),
-            'tokens_used' => isset($response['data']['tokens']) ? $response['data']['tokens'] : 0,
-            'duration_ms' => round($duration),
-        ]);
+        $analysisId = null;
+        
+        // Save to database only if not dry run
+        if (!$dryRun) {
+            $analysisId = $this->database->saveAnalysis([
+                'analysis_type' => 'customer_analysis',
+                'entity_id' => $entityId,
+                'entity_type' => 'customer',
+                'analysis_data' => $parsed['analysis'],
+                'suggestions' => $parsed['suggestions'],
+                'priority_score' => $parsed['priority_score'],
+                'llm_provider' => $this->llm->getProviderName(),
+                'llm_model' => $this->settings->get('llm_model'),
+                'tokens_used' => isset($response['data']['tokens']) ? $response['data']['tokens'] : 0,
+                'duration_ms' => round($duration),
+            ]);
+        }
+        
+        // Get customer display name
+        $customerName = $customer->get_first_name() . ' ' . $customer->get_last_name();
+        if (trim($customerName) === '') {
+            $customerName = $customer->get_email();
+        }
 
         return [
             'success' => true,
             'id' => $analysisId,
             'entity_id' => $entityId,
             'entity_type' => 'customer',
+            'entity_name' => $customerName,
             'analysis' => $parsed['analysis'],
             'suggestions' => $parsed['suggestions'],
             'priority_score' => $parsed['priority_score'],
+            'duration_ms' => round($duration),
+            'dry_run' => $dryRun,
         ];
     }
 

@@ -84,6 +84,7 @@ class AIAgentModule
         $this->initializeNotifications();
         $this->initializeContextManager();
         $this->initializeScheduledTasks();
+        $this->registerRowActions();
 
         $this->booted = true;
 
@@ -538,5 +539,292 @@ class AIAgentModule
         if (!wp_next_scheduled('aiagent_scheduled_analysis')) {
             wp_schedule_event(time(), $frequency, 'aiagent_scheduled_analysis');
         }
+    }
+
+    /**
+     * Register row actions for products and users tables
+     *
+     * @return void
+     */
+    private function registerRowActions()
+    {
+        // Add action to WooCommerce products list
+        add_filter('post_row_actions', [$this, 'addProductRowAction'], 10, 2);
+        
+        // Add action to users list
+        add_filter('user_row_actions', [$this, 'addUserRowAction'], 10, 2);
+        
+        // Enqueue scripts for the modal
+        add_action('admin_enqueue_scripts', [$this, 'enqueueAnalysisModalScripts']);
+        
+        // Add modal HTML to footer
+        add_action('admin_footer', [$this, 'renderAnalysisModal']);
+    }
+
+    /**
+     * Add AI analysis action to product row
+     *
+     * @param array $actions
+     * @param \WP_Post $post
+     * @return array
+     */
+    public function addProductRowAction($actions, $post)
+    {
+        if ($post->post_type !== 'product') {
+            return $actions;
+        }
+
+        $actions['aiagent_analyze'] = sprintf(
+            '<a href="#" class="aiagent-analyze-single" data-entity-type="product" data-entity-id="%d" data-entity-name="%s">%s</a>',
+            $post->ID,
+            esc_attr($post->post_title),
+            __('تحلیل هوشمند', 'forooshyar')
+        );
+
+        return $actions;
+    }
+
+    /**
+     * Add AI analysis action to user row
+     *
+     * @param array $actions
+     * @param \WP_User $user
+     * @return array
+     */
+    public function addUserRowAction($actions, $user)
+    {
+        // Only show for customers (users who have placed orders)
+        if (!in_array('customer', $user->roles, true)) {
+            return $actions;
+        }
+
+        $displayName = $user->display_name ?: $user->user_email;
+
+        $actions['aiagent_analyze'] = sprintf(
+            '<a href="#" class="aiagent-analyze-single" data-entity-type="customer" data-entity-id="%d" data-entity-name="%s">%s</a>',
+            $user->ID,
+            esc_attr($displayName),
+            __('تحلیل هوشمند', 'forooshyar')
+        );
+
+        return $actions;
+    }
+
+    /**
+     * Enqueue scripts for analysis modal on relevant admin pages
+     *
+     * @param string $hook
+     * @return void
+     */
+    public function enqueueAnalysisModalScripts($hook)
+    {
+        // Only on products list or users list
+        if (!in_array($hook, ['edit.php', 'users.php'], true)) {
+            return;
+        }
+
+        // On edit.php, only for products
+        if ($hook === 'edit.php') {
+            $screen = get_current_screen();
+            if (!$screen || $screen->post_type !== 'product') {
+                return;
+            }
+        }
+
+        wp_enqueue_script(
+            'aiagent-single-analysis',
+            plugin_dir_url(dirname(dirname(__DIR__))) . 'assets/js/ai-agent-single-analysis.js',
+            ['jquery'],
+            '1.0.0',
+            true
+        );
+
+        wp_localize_script('aiagent-single-analysis', 'aiagentSingleAnalysis', [
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('aiagent_nonce'),
+            'strings' => [
+                'analyzing' => __('در حال تحلیل...', 'forooshyar'),
+                'error' => __('خطا در تحلیل', 'forooshyar'),
+                'close' => __('بستن', 'forooshyar'),
+                'analysis' => __('تحلیل', 'forooshyar'),
+                'suggestions' => __('پیشنهادات', 'forooshyar'),
+                'priority' => __('اولویت', 'forooshyar'),
+                'duration' => __('مدت زمان', 'forooshyar'),
+                'ms' => __('میلی‌ثانیه', 'forooshyar'),
+                'dryRunNote' => __('این تحلیل آزمایشی است و ذخیره نشده است.', 'forooshyar'),
+            ]
+        ]);
+
+        // Add inline styles for modal
+        wp_add_inline_style('wp-admin', $this->getAnalysisModalStyles());
+    }
+
+    /**
+     * Get CSS styles for analysis modal
+     *
+     * @return string
+     */
+    private function getAnalysisModalStyles()
+    {
+        return '
+            .aiagent-modal-overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.7);
+                z-index: 100000;
+                justify-content: center;
+                align-items: center;
+            }
+            .aiagent-modal-overlay.active {
+                display: flex;
+            }
+            .aiagent-modal {
+                background: #fff;
+                border-radius: 8px;
+                max-width: 700px;
+                width: 90%;
+                max-height: 80vh;
+                overflow: hidden;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+                direction: rtl;
+            }
+            .aiagent-modal-header {
+                padding: 15px 20px;
+                background: #2271b1;
+                color: #fff;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .aiagent-modal-header h3 {
+                margin: 0;
+                font-size: 16px;
+            }
+            .aiagent-modal-close {
+                background: none;
+                border: none;
+                color: #fff;
+                font-size: 24px;
+                cursor: pointer;
+                padding: 0;
+                line-height: 1;
+            }
+            .aiagent-modal-body {
+                padding: 20px;
+                overflow-y: auto;
+                max-height: calc(80vh - 60px);
+            }
+            .aiagent-loading {
+                text-align: center;
+                padding: 40px;
+            }
+            .aiagent-loading .spinner {
+                float: none;
+                margin: 0 auto 10px;
+            }
+            .aiagent-analysis-section {
+                margin-bottom: 20px;
+            }
+            .aiagent-analysis-section h4 {
+                margin: 0 0 10px;
+                padding-bottom: 5px;
+                border-bottom: 1px solid #ddd;
+                color: #1d2327;
+            }
+            .aiagent-analysis-content {
+                background: #f6f7f7;
+                padding: 15px;
+                border-radius: 4px;
+                white-space: pre-wrap;
+                font-size: 13px;
+                line-height: 1.6;
+            }
+            .aiagent-suggestions-list {
+                list-style: none;
+                margin: 0;
+                padding: 0;
+            }
+            .aiagent-suggestions-list li {
+                background: #f0f6fc;
+                padding: 12px 15px;
+                margin-bottom: 10px;
+                border-radius: 4px;
+                border-right: 3px solid #2271b1;
+            }
+            .aiagent-suggestion-type {
+                font-weight: 600;
+                color: #2271b1;
+                margin-bottom: 5px;
+            }
+            .aiagent-suggestion-reason {
+                font-size: 12px;
+                color: #646970;
+            }
+            .aiagent-meta {
+                display: flex;
+                gap: 20px;
+                padding: 10px 15px;
+                background: #f0f0f1;
+                border-radius: 4px;
+                font-size: 12px;
+                color: #646970;
+            }
+            .aiagent-dry-run-note {
+                background: #fcf9e8;
+                border: 1px solid #dba617;
+                padding: 10px 15px;
+                border-radius: 4px;
+                margin-bottom: 15px;
+                font-size: 12px;
+                color: #6e4e00;
+            }
+            .aiagent-error {
+                background: #fcf0f1;
+                border: 1px solid #d63638;
+                padding: 15px;
+                border-radius: 4px;
+                color: #8a1c1f;
+            }
+        ';
+    }
+
+    /**
+     * Render analysis modal HTML in admin footer
+     *
+     * @return void
+     */
+    public function renderAnalysisModal()
+    {
+        $screen = get_current_screen();
+        
+        // Only on products list or users list
+        if (!$screen) {
+            return;
+        }
+        
+        $isProductList = $screen->base === 'edit' && $screen->post_type === 'product';
+        $isUserList = $screen->base === 'users';
+        
+        if (!$isProductList && !$isUserList) {
+            return;
+        }
+
+        ?>
+        <div id="aiagent-analysis-modal" class="aiagent-modal-overlay">
+            <div class="aiagent-modal">
+                <div class="aiagent-modal-header">
+                    <h3 id="aiagent-modal-title"><?php _e('تحلیل هوشمند', 'forooshyar'); ?></h3>
+                    <button type="button" class="aiagent-modal-close">&times;</button>
+                </div>
+                <div class="aiagent-modal-body" id="aiagent-modal-content">
+                    <!-- Content loaded via AJAX -->
+                </div>
+            </div>
+        </div>
+        <?php
     }
 }

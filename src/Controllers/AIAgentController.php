@@ -16,11 +16,64 @@ use Forooshyar\Modules\AIAgent\Services\ActionExecutor;
 use Forooshyar\Modules\AIAgent\Services\AnalysisJobManager;
 use Forooshyar\Modules\AIAgent\Services\SettingsManager;
 use Forooshyar\Modules\AIAgent\Services\SubscriptionManager;
+use Forooshyar\Modules\AIAgent\Services\ProductAnalyzer;
+use Forooshyar\Modules\AIAgent\Services\CustomerAnalyzer;
 use Forooshyar\Modules\AIAgent\Database\Migrations;
 use function Forooshyar\WPLite\appLogger;
 
 class AIAgentController extends Controller
 {
+    /**
+     * Analyze single entity (dry run - no save)
+     * Used for quick analysis preview from product/user list
+     *
+     * @return void
+     */
+    public function analyzeSingle(): void
+    {
+        // Verify nonce
+        $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+        if (!wp_verify_nonce($nonce, 'aiagent_nonce')) {
+            wp_send_json_error(['message' => __('توکن امنیتی نامعتبر', 'forooshyar')], 403);
+        }
+
+        if (!current_user_can('manage_woocommerce')) {
+            wp_send_json_error(['message' => __('دسترسی غیرمجاز', 'forooshyar')], 403);
+        }
+
+        $entityType = isset($_POST['entity_type']) ? sanitize_text_field($_POST['entity_type']) : '';
+        $entityId = isset($_POST['entity_id']) ? absint($_POST['entity_id']) : 0;
+
+        if (!in_array($entityType, ['product', 'customer'], true) || $entityId <= 0) {
+            wp_send_json_error(['message' => __('پارامترهای نامعتبر', 'forooshyar')], 400);
+        }
+
+        // Increase execution time for LLM call
+        if (function_exists('set_time_limit')) {
+            set_time_limit(120);
+        }
+
+        try {
+            if ($entityType === 'product') {
+                $analyzer = Container::resolve(ProductAnalyzer::class);
+            } else {
+                $analyzer = Container::resolve(CustomerAnalyzer::class);
+            }
+
+            // Dry run - don't save to database
+            $result = $analyzer->analyzeEntity($entityId, true);
+
+            if ($result['success']) {
+                wp_send_json_success($result);
+            } else {
+                wp_send_json_error(['message' => $result['error']], 500);
+            }
+        } catch (\Exception $e) {
+            appLogger("[AIAgent] Single analysis error: " . $e->getMessage());
+            wp_send_json_error(['message' => $e->getMessage()], 500);
+        }
+    }
+
     /**
      * Start async analysis job
      *

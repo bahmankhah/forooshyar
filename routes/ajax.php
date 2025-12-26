@@ -54,6 +54,9 @@ Route::ajax(function ($router) {
     // AI Agent Module
     // ============================================
     
+    // Single entity analysis (dry run)
+    $router->post('aiagent_analyze_single', [AIAgentController::class, 'analyzeSingle'])->make();
+    
     // Analysis job management
     $router->post('aiagent_start_analysis', [AIAgentController::class, 'startAnalysis'])->make();
     $router->post('aiagent_cancel_analysis', [AIAgentController::class, 'cancelAnalysis'])->make();

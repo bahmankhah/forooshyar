@@ -57,6 +57,24 @@
   - بروزرسانی `getAvgResponseTime()` برای exclude کردن run records
   - اضافه کردن متد جدید `getAnalysisRunHistory()` برای دسترسی به تاریخچه اجراها در صورت نیاز
 
+### 5. تحلیل تکی محصول/مشتری (Dry Run) ✅
+- **درخواست**: امکان تحلیل سریع یک محصول یا مشتری از لیست آن‌ها بدون ذخیره در دیتابیس
+- **راه‌حل**:
+  - اضافه کردن پارامتر `$dryRun` به متد `analyzeEntity()` در `ProductAnalyzer` و `CustomerAnalyzer`
+  - ایجاد متد `analyzeSingle()` در `AIAgentController` برای هندل کردن AJAX
+  - اضافه کردن route `aiagent_analyze_single` به `routes/ajax.php`
+  - اضافه کردن لینک "تحلیل هوشمند" به ردیف محصولات در لیست محصولات ووکامرس
+  - اضافه کردن لینک "تحلیل هوشمند" به ردیف مشتریان در لیست کاربران
+  - ایجاد modal برای نمایش نتیجه تحلیل با استایل مناسب
+  - ایجاد فایل JavaScript `assets/js/ai-agent-single-analysis.js` برای مدیریت modal و AJAX
+- **فایل‌های تغییر یافته**:
+  - `src/Modules/AIAgent/Services/ProductAnalyzer.php`
+  - `src/Modules/AIAgent/Services/CustomerAnalyzer.php`
+  - `src/Controllers/AIAgentController.php`
+  - `routes/ajax.php`
+  - `src/Modules/AIAgent/AIAgentModule.php`
+  - `assets/js/ai-agent-single-analysis.js` (جدید)
+
 ---
 
 ## 🟡 بهبودهای پیشنهادی (اولویت متوسط)

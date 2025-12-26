@@ -108,11 +108,12 @@ class ProductAnalyzer implements AnalyzerInterface
      * Analyze a single product
      *
      * @param int $entityId
+     * @param bool $dryRun If true, don't save to database
      * @return array
      */
-    public function analyzeEntity($entityId)
+    public function analyzeEntity($entityId, $dryRun = false)
     {
-        appLogger("[AIAgent] Starting analysis for product ID: {$entityId}");
+        appLogger("[AIAgent] Starting analysis for product ID: {$entityId}" . ($dryRun ? ' (dry run)' : ''));
         
         $product = wc_get_product($entityId);
         if (!$product) {
@@ -147,30 +148,38 @@ class ProductAnalyzer implements AnalyzerInterface
         appLogger("[AIAgent] Parsed response - Analysis: " . substr($parsed['analysis'], 0, 200));
         appLogger("[AIAgent] Parsed response - Suggestions count: " . count($parsed['suggestions']));
 
-        // Save to database
-        $analysisId = $this->database->saveAnalysis([
-            'analysis_type' => 'product_analysis',
-            'entity_id' => $entityId,
-            'entity_type' => 'product',
-            'analysis_data' => $parsed['analysis'],
-            'suggestions' => $parsed['suggestions'],
-            'priority_score' => $parsed['priority_score'],
-            'llm_provider' => $this->llm->getProviderName(),
-            'llm_model' => $this->settings->get('llm_model'),
-            'tokens_used' => isset($response['data']['tokens']) ? $response['data']['tokens'] : 0,
-            'duration_ms' => round($duration),
-        ]);
-
-        appLogger("[AIAgent] Analysis saved to database with ID: " . ($analysisId ?: 'FAILED'));
+        $analysisId = null;
+        
+        // Save to database only if not dry run
+        if (!$dryRun) {
+            $analysisId = $this->database->saveAnalysis([
+                'analysis_type' => 'product_analysis',
+                'entity_id' => $entityId,
+                'entity_type' => 'product',
+                'analysis_data' => $parsed['analysis'],
+                'suggestions' => $parsed['suggestions'],
+                'priority_score' => $parsed['priority_score'],
+                'llm_provider' => $this->llm->getProviderName(),
+                'llm_model' => $this->settings->get('llm_model'),
+                'tokens_used' => isset($response['data']['tokens']) ? $response['data']['tokens'] : 0,
+                'duration_ms' => round($duration),
+            ]);
+            appLogger("[AIAgent] Analysis saved to database with ID: " . ($analysisId ?: 'FAILED'));
+        } else {
+            appLogger("[AIAgent] Dry run - analysis not saved to database");
+        }
 
         return [
             'success' => true,
             'id' => $analysisId,
             'entity_id' => $entityId,
             'entity_type' => 'product',
+            'entity_name' => $product->get_name(),
             'analysis' => $parsed['analysis'],
             'suggestions' => $parsed['suggestions'],
             'priority_score' => $parsed['priority_score'],
+            'duration_ms' => round($duration),
+            'dry_run' => $dryRun,
         ];
     }
 
