@@ -632,6 +632,181 @@ class DatabaseService
     }
 
     /**
+     * Get paginated actions
+     *
+     * @param array $filters
+     * @param int $page
+     * @param int $perPage
+     * @return array
+     */
+    public function getPaginatedActions(array $filters = [], $page = 1, $perPage = 20)
+    {
+        global $wpdb;
+
+        $where = ['1=1'];
+        $params = [];
+
+        if (!empty($filters['status'])) {
+            if (is_array($filters['status'])) {
+                $placeholders = implode(',', array_fill(0, count($filters['status']), '%s'));
+                $where[] = "status IN ({$placeholders})";
+                $params = array_merge($params, $filters['status']);
+            } else {
+                $where[] = 'status = %s';
+                $params[] = $filters['status'];
+            }
+        }
+
+        if (!empty($filters['action_type'])) {
+            $where[] = 'action_type = %s';
+            $params[] = $filters['action_type'];
+        }
+
+        $whereClause = implode(' AND ', $where);
+
+        // Get total count
+        $countSql = "SELECT COUNT(*) FROM {$this->actionsTable} WHERE {$whereClause}";
+        $total = (int) $wpdb->get_var(
+            !empty($params) ? $wpdb->prepare($countSql, $params) : $countSql
+        );
+
+        // Get paginated results
+        $offset = ($page - 1) * $perPage;
+        $params[] = $perPage;
+        $params[] = $offset;
+
+        $sql = "SELECT * FROM {$this->actionsTable} WHERE {$whereClause} ORDER BY priority_score DESC, created_at DESC LIMIT %d OFFSET %d";
+        $rows = $wpdb->get_results($wpdb->prepare($sql, $params), ARRAY_A);
+
+        foreach ($rows as &$row) {
+            $row['action_data'] = json_decode($row['action_data'], true);
+            $row['result'] = $row['result'] ? json_decode($row['result'], true) : null;
+        }
+
+        return [
+            'items' => $rows,
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_pages' => ceil($total / $perPage),
+        ];
+    }
+
+    /**
+     * Get paginated analyses
+     *
+     * @param array $filters
+     * @param int $page
+     * @param int $perPage
+     * @return array
+     */
+    public function getPaginatedAnalyses(array $filters = [], $page = 1, $perPage = 20)
+    {
+        global $wpdb;
+
+        $where = ["entity_type != 'run'"];
+        $params = [];
+
+        if (!empty($filters['entity_type'])) {
+            $where[] = 'entity_type = %s';
+            $params[] = $filters['entity_type'];
+        }
+
+        if (!empty($filters['analysis_type'])) {
+            $where[] = 'analysis_type = %s';
+            $params[] = $filters['analysis_type'];
+        }
+
+        $whereClause = implode(' AND ', $where);
+
+        // Get total count
+        $countSql = "SELECT COUNT(*) FROM {$this->analysisTable} WHERE {$whereClause}";
+        $total = (int) $wpdb->get_var(
+            !empty($params) ? $wpdb->prepare($countSql, $params) : $countSql
+        );
+
+        // Get paginated results
+        $offset = ($page - 1) * $perPage;
+        $params[] = $perPage;
+        $params[] = $offset;
+
+        $sql = "SELECT * FROM {$this->analysisTable} WHERE {$whereClause} ORDER BY created_at DESC LIMIT %d OFFSET %d";
+        $rows = $wpdb->get_results($wpdb->prepare($sql, $params), ARRAY_A);
+
+        foreach ($rows as &$row) {
+            $row['analysis_data'] = json_decode($row['analysis_data'], true);
+            $row['suggestions'] = json_decode($row['suggestions'], true);
+        }
+
+        return [
+            'items' => $rows,
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_pages' => ceil($total / $perPage),
+        ];
+    }
+
+    /**
+     * Get actions count by status
+     *
+     * @return array
+     */
+    public function getActionsCountByStatus()
+    {
+        global $wpdb;
+
+        $results = $wpdb->get_results(
+            "SELECT status, COUNT(*) as count FROM {$this->actionsTable} GROUP BY status",
+            ARRAY_A
+        );
+
+        $counts = [
+            'pending' => 0,
+            'approved' => 0,
+            'completed' => 0,
+            'failed' => 0,
+            'cancelled' => 0,
+            'all' => 0,
+        ];
+
+        foreach ($results as $row) {
+            $counts[$row['status']] = (int) $row['count'];
+            $counts['all'] += (int) $row['count'];
+        }
+
+        return $counts;
+    }
+
+    /**
+     * Get analyses count by type
+     *
+     * @return array
+     */
+    public function getAnalysesCountByType()
+    {
+        global $wpdb;
+
+        $results = $wpdb->get_results(
+            "SELECT entity_type, COUNT(*) as count FROM {$this->analysisTable} WHERE entity_type != 'run' GROUP BY entity_type",
+            ARRAY_A
+        );
+
+        $counts = [
+            'product' => 0,
+            'customer' => 0,
+            'all' => 0,
+        ];
+
+        foreach ($results as $row) {
+            $counts[$row['entity_type']] = (int) $row['count'];
+            $counts['all'] += (int) $row['count'];
+        }
+
+        return $counts;
+    }
+
+    /**
      * Get analyses by day
      *
      * @param int $days

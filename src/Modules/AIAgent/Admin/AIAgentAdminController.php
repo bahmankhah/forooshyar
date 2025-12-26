@@ -8,9 +8,11 @@
 namespace Forooshyar\Modules\AIAgent\Admin;
 
 use Forooshyar\WPLite\Facades\View;
+use Forooshyar\WPLite\Container;
 use Forooshyar\Modules\AIAgent\Services\AIAgentService;
 use Forooshyar\Modules\AIAgent\Services\SubscriptionManager;
 use Forooshyar\Modules\AIAgent\Services\SettingsManager;
+use Forooshyar\Modules\AIAgent\Services\DatabaseService;
 
 class AIAgentAdminController
 {
@@ -65,14 +67,74 @@ class AIAgentAdminController
      */
     public function dashboardPage()
     {
+        $db = Container::resolve(DatabaseService::class);
+        
+        // Get current tab and page
+        $currentTab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'overview';
+        $currentPage = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
+        $perPage = 15;
+        
+        // Get stats and status
         $stats = $this->service->getStatistics(30);
         $status = $this->service->getStatus();
-        $dashboardData = $this->service->getDashboardData();
+        
+        // Get counts for tabs
+        $actionCounts = $db->getActionsCountByStatus();
+        $analysisCounts = $db->getAnalysesCountByType();
+        
+        // Get paginated data based on tab
+        $actionsData = null;
+        $analysesData = null;
+        $statusFilter = isset($_GET['status']) ? sanitize_text_field($_GET['status']) : '';
+        $typeFilter = isset($_GET['type']) ? sanitize_text_field($_GET['type']) : '';
+        
+        switch ($currentTab) {
+            case 'pending':
+                $actionsData = $db->getPaginatedActions(['status' => ['pending', 'approved']], $currentPage, $perPage);
+                break;
+            case 'completed':
+                $actionsData = $db->getPaginatedActions(['status' => ['completed', 'failed']], $currentPage, $perPage);
+                break;
+            case 'actions':
+                $filters = [];
+                if ($statusFilter) {
+                    $filters['status'] = $statusFilter;
+                }
+                $actionsData = $db->getPaginatedActions($filters, $currentPage, $perPage);
+                break;
+            case 'analyses':
+                $filters = [];
+                if ($typeFilter) {
+                    $filters['entity_type'] = $typeFilter;
+                }
+                $analysesData = $db->getPaginatedAnalyses($filters, $currentPage, $perPage);
+                break;
+            case 'overview':
+            default:
+                // Get recent items for overview
+                $actionsData = [
+                    'items' => $db->getRecentActions(5),
+                    'total' => $actionCounts['all'],
+                ];
+                $analysesData = [
+                    'items' => $db->getRecentAnalyses(5),
+                    'total' => $analysisCounts['all'],
+                ];
+                break;
+        }
 
         View::render('admin.aiagent-dashboard', [
             'stats' => $stats,
             'status' => $status,
-            'dashboardData' => $dashboardData,
+            'currentTab' => $currentTab,
+            'currentPage' => $currentPage,
+            'perPage' => $perPage,
+            'actionCounts' => $actionCounts,
+            'analysisCounts' => $analysisCounts,
+            'actionsData' => $actionsData,
+            'analysesData' => $analysesData,
+            'statusFilter' => $statusFilter,
+            'typeFilter' => $typeFilter,
         ]);
     }
 
