@@ -1486,7 +1486,7 @@ jQuery(document).ready(function($) {
                     }
                 }
             });
-        }, 2000);
+        }, 7000);
     }
     
     function stopProgressPolling() {
