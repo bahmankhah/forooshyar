@@ -1146,10 +1146,21 @@ jQuery(document).ready(function($) {
     if (typeof Chart !== 'undefined') {
         var ctx = document.getElementById('activity-chart');
         if (ctx) {
+            <?php
+            // Format dates for Persian display (day month)
+            $formattedLabels = array_map(function($item) {
+                // Use pre-formatted label if available, otherwise format the date
+                if (!empty($item['label'])) {
+                    return $item['label'];
+                }
+                $timestamp = strtotime($item['date']);
+                return date_i18n('j M', $timestamp);
+            }, $stats['daily']);
+            ?>
             new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: <?php echo wp_json_encode(array_column($stats['daily'], 'date')); ?>,
+                    labels: <?php echo wp_json_encode($formattedLabels); ?>,
                     datasets: [
                         {
                             label: '<?php _e('تحلیل‌ها', 'forooshyar'); ?>',

@@ -565,8 +565,11 @@ class AIAgentService
         $daily = [];
         for ($i = $days - 1; $i >= 0; $i--) {
             $date = date('Y-m-d', strtotime("-{$i} days"));
+            $timestamp = strtotime($date);
             $daily[] = [
                 'date' => $date,
+                // Localized date label for chart (day month in Persian)
+                'label' => date_i18n('j M', $timestamp),
                 'analyses' => isset($analysesByDay[$date]) ? $analysesByDay[$date] : 0,
                 'actions' => isset($actionsByDay[$date]) ? $actionsByDay[$date] : 0,
             ];

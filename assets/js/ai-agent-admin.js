@@ -475,7 +475,8 @@
         var labels = [], analysesData = [], actionsData = [];
 
         for (var i = 0; i < dailyData.length; i++) {
-            labels.push(dailyData[i].date);
+            // Use localized label if available, fallback to date
+            labels.push(dailyData[i].label || dailyData[i].date);
             analysesData.push(dailyData[i].analyses || 0);
             actionsData.push(dailyData[i].actions || 0);
         }

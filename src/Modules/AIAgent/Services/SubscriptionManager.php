@@ -20,7 +20,6 @@ class SubscriptionManager implements SubscriptionInterface
     const FEATURE_PRODUCT_ANALYSIS = 'product_analysis';
     const FEATURE_CUSTOMER_ANALYSIS = 'customer_analysis';
     const FEATURE_AUTO_ACTIONS = 'auto_actions';
-    const FEATURE_SQL_ANALYSIS = 'sql_analysis';
     const FEATURE_ADVANCED_REPORTS = 'advanced_reports';
     const FEATURE_MULTI_LLM = 'multi_llm_providers';
 
@@ -50,7 +49,6 @@ class SubscriptionManager implements SubscriptionInterface
         self::FEATURE_PRODUCT_ANALYSIS => 'Analyze product performance and get optimization suggestions',
         self::FEATURE_CUSTOMER_ANALYSIS => 'Analyze customer behavior and lifecycle stages',
         self::FEATURE_AUTO_ACTIONS => 'Automatically execute suggested actions',
-        self::FEATURE_SQL_ANALYSIS => 'Advanced SQL-based data analysis',
         self::FEATURE_ADVANCED_REPORTS => 'Detailed analytics and reporting',
         self::FEATURE_MULTI_LLM => 'Use multiple LLM providers',
     ];
@@ -154,7 +152,6 @@ class SubscriptionManager implements SubscriptionInterface
                 self::FEATURE_PRODUCT_ANALYSIS,
                 self::FEATURE_CUSTOMER_ANALYSIS,
                 self::FEATURE_AUTO_ACTIONS,
-                self::FEATURE_SQL_ANALYSIS,
                 self::FEATURE_ADVANCED_REPORTS,
                 self::FEATURE_MULTI_LLM,
             ];
