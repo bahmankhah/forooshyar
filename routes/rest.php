@@ -6,7 +6,7 @@ use Forooshyar\WPLite\Facades\Route;
 
 Route::rest(function ($router) {
     // Main products endpoint - GET /products
-    $router->get('/products', [ProductController::class, 'index'])->middleware(ApiLoggingMiddleware::class)->withoutNamespace('emalls')->make();
+    $router->get('/products', [ProductController::class, 'index'])->middleware(ApiLoggingMiddleware::class)->namespace('emalls')->make();
     $router->get('/products', [ProductController::class, 'index'])->middleware(ApiLoggingMiddleware::class)->namespace('torob')->make();
     
     
