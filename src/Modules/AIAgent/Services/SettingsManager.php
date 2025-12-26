@@ -938,7 +938,45 @@ class SettingsManager
         $updated = 0;
         $errors = [];
 
+        // Handle special action types settings
+        if (isset($settings['actions_enabled']) || isset($settings['actions_require_approval'])) {
+            $enabledTypes = isset($settings['actions_enabled']) ? $settings['actions_enabled'] : [];
+            $approvalTypes = isset($settings['actions_require_approval']) ? $settings['actions_require_approval'] : [];
+            
+            // Ensure they are arrays
+            if (!is_array($enabledTypes)) {
+                $enabledTypes = [];
+            }
+            if (!is_array($approvalTypes)) {
+                $approvalTypes = [];
+            }
+            
+            // Get all action types and update their config
+            $actionTypes = appConfig('aiagent.action_types', []);
+            $savedConfig = [];
+            
+            foreach ($actionTypes as $type => $config) {
+                $savedConfig[$type] = [
+                    'enabled' => in_array($type, $enabledTypes),
+                    'requires_approval' => in_array($type, $approvalTypes),
+                ];
+            }
+            
+            if (update_option(self::OPTION_PREFIX . 'actions_config', $savedConfig)) {
+                $updated++;
+            }
+            
+            // Remove from settings array so they don't get processed again
+            unset($settings['actions_enabled']);
+            unset($settings['actions_require_approval']);
+        }
+
         foreach ($settings as $key => $value) {
+            // Skip the action_types field itself (it's handled above)
+            if ($key === 'actions_config') {
+                continue;
+            }
+            
             $validation = $this->validate($key, $value);
             
             if (!$validation['valid']) {

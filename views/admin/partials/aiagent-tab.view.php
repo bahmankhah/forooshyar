@@ -213,6 +213,55 @@ $tierName = isset($subscriptionStatus['tier_name']) ? $subscriptionStatus['tier_
                                <?php echo $disabled; ?>>
                     <?php
                             break;
+                        case 'action_types':
+                            // Get all action types from config
+                            $actionTypes = $aiSettings->getAllActionTypes();
+                    ?>
+                        <div class="aiagent-action-types-config">
+                            <!-- Enabled Action Types -->
+                            <div class="action-types-section" style="margin-bottom: 20px;">
+                                <h4 style="margin: 0 0 10px 0; font-size: 14px;"><?php _e('انواع اقدامات فعال', 'forooshyar'); ?></h4>
+                                <p class="description" style="margin-bottom: 10px;"><?php _e('اقداماتی که سیستم می‌تواند پیشنهاد و ایجاد کند:', 'forooshyar'); ?></p>
+                                <div class="aiagent-checkbox-group">
+                                    <?php foreach ($actionTypes as $actionType => $actionConfig): 
+                                        $checkboxId = 'aiagent_action_enabled_' . $actionType;
+                                    ?>
+                                    <label class="aiagent-checkbox-item" for="<?php echo esc_attr($checkboxId); ?>">
+                                        <input type="checkbox" 
+                                               name="aiagent_actions_enabled[]" 
+                                               id="<?php echo esc_attr($checkboxId); ?>" 
+                                               value="<?php echo esc_attr($actionType); ?>"
+                                               <?php echo $actionConfig['enabled'] ? 'checked' : ''; ?>
+                                               <?php echo $disabled; ?>>
+                                        <span class="checkbox-label"><?php echo esc_html($actionConfig['label']); ?></span>
+                                    </label>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                            
+                            <!-- Auto-Execute Action Types -->
+                            <div class="action-types-section">
+                                <h4 style="margin: 0 0 10px 0; font-size: 14px;"><?php _e('اقدامات نیازمند تأیید', 'forooshyar'); ?></h4>
+                                <p class="description" style="margin-bottom: 10px;"><?php _e('اقداماتی که قبل از اجرا نیاز به تأیید دستی دارند (بقیه خودکار اجرا می‌شوند):', 'forooshyar'); ?></p>
+                                <div class="aiagent-checkbox-group">
+                                    <?php foreach ($actionTypes as $actionType => $actionConfig): 
+                                        $checkboxId = 'aiagent_action_approval_' . $actionType;
+                                    ?>
+                                    <label class="aiagent-checkbox-item" for="<?php echo esc_attr($checkboxId); ?>">
+                                        <input type="checkbox" 
+                                               name="aiagent_actions_require_approval[]" 
+                                               id="<?php echo esc_attr($checkboxId); ?>" 
+                                               value="<?php echo esc_attr($actionType); ?>"
+                                               <?php echo $actionConfig['requires_approval'] ? 'checked' : ''; ?>
+                                               <?php echo $disabled; ?>>
+                                        <span class="checkbox-label"><?php echo esc_html($actionConfig['label']); ?></span>
+                                    </label>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        </div>
+                    <?php
+                            break;
                         default:
                     ?>
                         <input type="text" 
@@ -524,6 +573,25 @@ $tierName = isset($subscriptionStatus['tier_name']) ? $subscriptionStatus['tier_
 .aiagent-checkbox-item .checkbox-label {
     font-size: 13px;
     white-space: nowrap;
+}
+
+/* Action Types Config Styles */
+.aiagent-action-types-config {
+    background: #f9f9f9;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.aiagent-action-types-config .action-types-section {
+    padding: 15px;
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 4px;
+}
+
+.aiagent-action-types-config .action-types-section h4 {
+    color: #1d2327;
 }
 
 /* Analysis Section Styles */
