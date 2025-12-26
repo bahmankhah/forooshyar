@@ -236,6 +236,20 @@ return [
         ],
 
         // Analysis Settings
+        'analysis_include_products' => [
+            'type' => 'boolean',
+            'default' => true,
+            'label' => 'تحلیل محصولات',
+            'section' => 'analysis',
+            'description' => 'تحلیل محصولات در هنگام اجرای تحلیل',
+        ],
+        'analysis_include_customers' => [
+            'type' => 'boolean',
+            'default' => true,
+            'label' => 'تحلیل مشتریان',
+            'section' => 'analysis',
+            'description' => 'تحلیل مشتریان در هنگام اجرای تحلیل',
+        ],
         'analysis_product_limit' => [
             'type' => 'number',
             'default' => 50,

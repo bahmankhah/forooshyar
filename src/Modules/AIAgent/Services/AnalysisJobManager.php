@@ -89,18 +89,22 @@ class AnalysisJobManager
             ];
         }
 
+        // Check analysis type settings
+        $includeProducts = (bool) $this->settings->get('analysis_include_products', true);
+        $includeCustomers = (bool) $this->settings->get('analysis_include_customers', true);
+
         // Get entities to analyze
         $products = [];
         $customers = [];
 
-        if ($type === 'all' || $type === 'products') {
+        if (($type === 'all' || $type === 'products') && $includeProducts) {
             if ($this->subscription->isFeatureEnabled(SubscriptionManager::FEATURE_PRODUCT_ANALYSIS)) {
                 $limit = $this->settings->get('analysis_product_limit', 50);
                 $products = $this->productAnalyzer->getEntities($limit);
             }
         }
 
-        if ($type === 'all' || $type === 'customers') {
+        if (($type === 'all' || $type === 'customers') && $includeCustomers) {
             if ($this->subscription->isFeatureEnabled(SubscriptionManager::FEATURE_CUSTOMER_ANALYSIS)) {
                 $limit = $this->settings->get('analysis_customer_limit', 100);
                 $customers = $this->customerAnalyzer->getEntities($limit);
@@ -112,7 +116,7 @@ class AnalysisJobManager
         if ($totalItems === 0) {
             return [
                 'success' => false,
-                'error' => __('هیچ موردی برای تحلیل یافت نشد', 'forooshyar'),
+                'error' => __('هیچ موردی برای تحلیل یافت نشد. تنظیمات تحلیل را بررسی کنید.', 'forooshyar'),
             ];
         }
 

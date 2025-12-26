@@ -294,16 +294,30 @@ function aiagent_priority_class($score) {
 
         <?php elseif ($currentTab === 'pending'): ?>
         <!-- Pending Actions Tab -->
-        <h3 style="margin-top: 0;"><?php _e('اقدامات در انتظار اجرا', 'forooshyar'); ?></h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0;"><?php _e('اقدامات در انتظار اجرا', 'forooshyar'); ?></h3>
+            <?php if (!empty($actionsData['items'])): ?>
+            <div style="display: flex; gap: 10px;">
+                <button type="button" class="button button-primary" id="btn-approve-all">
+                    <span class="dashicons dashicons-yes" style="vertical-align: middle;"></span>
+                    <?php _e('تأیید همه', 'forooshyar'); ?>
+                </button>
+                <button type="button" class="button" id="btn-dismiss-all" style="color: #a00;">
+                    <span class="dashicons dashicons-no" style="vertical-align: middle;"></span>
+                    <?php _e('حذف همه', 'forooshyar'); ?>
+                </button>
+            </div>
+            <?php endif; ?>
+        </div>
         
         <?php if (!empty($actionsData['items'])): ?>
         <table class="wp-list-table widefat fixed striped">
             <thead>
                 <tr>
                     <th style="width: 5%;"><?php _e('شناسه', 'forooshyar'); ?></th>
-                    <th style="width: 15%;"><?php _e('نوع اقدام', 'forooshyar'); ?></th>
+                    <th style="width: 18%;"><?php _e('نوع اقدام', 'forooshyar'); ?></th>
                     <th style="width: 8%;"><?php _e('اولویت', 'forooshyar'); ?></th>
-                    <th style="width: 37%;"><?php _e('توضیحات هوش مصنوعی', 'forooshyar'); ?></th>
+                    <th style="width: 34%;"><?php _e('توضیحات هوش مصنوعی', 'forooshyar'); ?></th>
                     <th style="width: 15%;"><?php _e('تاریخ', 'forooshyar'); ?></th>
                     <th style="width: 20%;"><?php _e('عملیات', 'forooshyar'); ?></th>
                 </tr>
@@ -312,11 +326,38 @@ function aiagent_priority_class($score) {
                 <?php foreach ($actionsData['items'] as $action): 
                     $actionData = $action['action_data'] ?? [];
                     $reasoning = $actionData['reasoning'] ?? '';
+                    
+                    // Get entity info for display
+                    $entityInfo = '';
+                    if (!empty($actionData['entity_type']) && !empty($actionData['entity_id'])) {
+                        $entityType = $actionData['entity_type'] === 'product' ? 'محصول' : 'مشتری';
+                        $entityInfo = $entityType . ' #' . $actionData['entity_id'];
+                        
+                        if ($actionData['entity_type'] === 'product' && function_exists('wc_get_product')) {
+                            $product = wc_get_product($actionData['entity_id']);
+                            if ($product) {
+                                $entityInfo = $product->get_name();
+                            }
+                        }
+                    } elseif (!empty($actionData['product_id'])) {
+                        $entityInfo = 'محصول #' . $actionData['product_id'];
+                        if (function_exists('wc_get_product')) {
+                            $product = wc_get_product($actionData['product_id']);
+                            if ($product) {
+                                $entityInfo = $product->get_name();
+                            }
+                        }
+                    } elseif (!empty($actionData['customer_id'])) {
+                        $entityInfo = 'مشتری #' . $actionData['customer_id'];
+                    }
                 ?>
                 <tr>
                     <td><?php echo esc_html($action['id']); ?></td>
                     <td>
                         <strong><?php echo esc_html($actionTypeLabels[$action['action_type']] ?? $action['action_type']); ?></strong>
+                        <?php if ($entityInfo): ?>
+                        <br><small style="color: #666;"><?php echo esc_html($entityInfo); ?></small>
+                        <?php endif; ?>
                     </td>
                     <td>
                         <span class="priority-<?php echo aiagent_priority_class($action['priority_score']); ?>" style="font-weight: 600; padding: 3px 8px; border-radius: 3px; background: <?php echo $action['priority_score'] >= 70 ? '#ffeaea' : ($action['priority_score'] >= 50 ? '#fff3cd' : '#e8f5e9'); ?>;">
@@ -340,7 +381,7 @@ function aiagent_priority_class($score) {
                             <?php _e('اجرا', 'forooshyar'); ?>
                         </button>
                         <button type="button" class="button button-small btn-dismiss-action" data-id="<?php echo esc_attr($action['id']); ?>" style="color: #a00;">
-                            <?php _e('رد', 'forooshyar'); ?>
+                            <?php _e('حذف', 'forooshyar'); ?>
                         </button>
                     </td>
                 </tr>
@@ -374,7 +415,7 @@ function aiagent_priority_class($score) {
         
         <?php else: ?>
         <p style="text-align: center; color: #666; padding: 40px 0;">
-            <?php _e('هیچ اقدامی در انتظار تأیید نیست.', 'forooshyar'); ?>
+            <?php _e('هیچ اقدامی در انتظار نیست.', 'forooshyar'); ?>
         </p>
         <?php endif; ?>
 
@@ -962,12 +1003,12 @@ jQuery(document).ready(function($) {
         });
     });
 
-    // Dismiss/Reject action
+    // Dismiss/Reject action (deletes permanently)
     $(document).on('click', '.btn-dismiss-action', function() {
         var $btn = $(this);
         var actionId = $btn.data('id');
         
-        if (!confirm('<?php _e('آیا از رد این اقدام اطمینان دارید؟ این اقدام حذف خواهد شد.', 'forooshyar'); ?>')) return;
+        if (!confirm('<?php _e('آیا از حذف این اقدام اطمینان دارید؟', 'forooshyar'); ?>')) return;
         
         $btn.addClass('loading').text('...');
         
@@ -986,12 +1027,72 @@ jQuery(document).ready(function($) {
                     });
                 } else {
                     alert(response.data.message || '<?php _e('خطا', 'forooshyar'); ?>');
-                    $btn.removeClass('loading').text('<?php _e('رد', 'forooshyar'); ?>');
+                    $btn.removeClass('loading').text('<?php _e('حذف', 'forooshyar'); ?>');
                 }
             },
             error: function() {
                 alert('<?php _e('خطا در ارتباط با سرور', 'forooshyar'); ?>');
-                $btn.removeClass('loading').text('<?php _e('رد', 'forooshyar'); ?>');
+                $btn.removeClass('loading').text('<?php _e('حذف', 'forooshyar'); ?>');
+            }
+        });
+    });
+
+    // Approve all pending actions
+    $('#btn-approve-all').on('click', function() {
+        if (!confirm('<?php _e('آیا از تأیید همه اقدامات در انتظار اطمینان دارید؟', 'forooshyar'); ?>')) return;
+        
+        var $btn = $(this);
+        $btn.prop('disabled', true).text('<?php _e('در حال تأیید...', 'forooshyar'); ?>');
+        
+        $.ajax({
+            url: aiagentAdmin.ajaxUrl,
+            type: 'POST',
+            data: {
+                action: 'aiagent_approve_all_actions',
+                nonce: aiagentAdmin.nonce
+            },
+            success: function(response) {
+                if (response.success) {
+                    alert(response.data.message);
+                    location.reload();
+                } else {
+                    alert(response.data.message || '<?php _e('خطا', 'forooshyar'); ?>');
+                    $btn.prop('disabled', false).html('<span class="dashicons dashicons-yes" style="vertical-align: middle;"></span> <?php _e('تأیید همه', 'forooshyar'); ?>');
+                }
+            },
+            error: function() {
+                alert('<?php _e('خطا در ارتباط با سرور', 'forooshyar'); ?>');
+                $btn.prop('disabled', false).html('<span class="dashicons dashicons-yes" style="vertical-align: middle;"></span> <?php _e('تأیید همه', 'forooshyar'); ?>');
+            }
+        });
+    });
+
+    // Dismiss all pending actions
+    $('#btn-dismiss-all').on('click', function() {
+        if (!confirm('<?php _e('آیا از حذف همه اقدامات در انتظار اطمینان دارید؟ این عمل قابل بازگشت نیست.', 'forooshyar'); ?>')) return;
+        
+        var $btn = $(this);
+        $btn.prop('disabled', true).text('<?php _e('در حال حذف...', 'forooshyar'); ?>');
+        
+        $.ajax({
+            url: aiagentAdmin.ajaxUrl,
+            type: 'POST',
+            data: {
+                action: 'aiagent_dismiss_all_actions',
+                nonce: aiagentAdmin.nonce
+            },
+            success: function(response) {
+                if (response.success) {
+                    alert(response.data.message);
+                    location.reload();
+                } else {
+                    alert(response.data.message || '<?php _e('خطا', 'forooshyar'); ?>');
+                    $btn.prop('disabled', false).html('<span class="dashicons dashicons-no" style="vertical-align: middle;"></span> <?php _e('حذف همه', 'forooshyar'); ?>');
+                }
+            },
+            error: function() {
+                alert('<?php _e('خطا در ارتباط با سرور', 'forooshyar'); ?>');
+                $btn.prop('disabled', false).html('<span class="dashicons dashicons-no" style="vertical-align: middle;"></span> <?php _e('حذف همه', 'forooshyar'); ?>');
             }
         });
     });

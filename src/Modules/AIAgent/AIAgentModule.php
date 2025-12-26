@@ -422,6 +422,8 @@ class AIAgentModule
         add_action('wp_ajax_aiagent_execute_action', [$this, 'ajaxExecuteAction']);
         add_action('wp_ajax_aiagent_approve_action', [$this, 'ajaxApproveAction']);
         add_action('wp_ajax_aiagent_dismiss_action', [$this, 'ajaxDismissAction']);
+        add_action('wp_ajax_aiagent_approve_all_actions', [$this, 'ajaxApproveAllActions']);
+        add_action('wp_ajax_aiagent_dismiss_all_actions', [$this, 'ajaxDismissAllActions']);
         add_action('wp_ajax_aiagent_get_stats', [$this, 'ajaxGetStats']);
         add_action('wp_ajax_aiagent_test_connection', [$this, 'ajaxTestConnection']);
     }
@@ -616,7 +618,7 @@ class AIAgentModule
     }
 
     /**
-     * AJAX: Dismiss/reject an action
+     * AJAX: Dismiss/reject an action (deletes it permanently)
      *
      * @return void
      */
@@ -632,9 +634,63 @@ class AIAgentModule
         $db = Container::resolve(DatabaseService::class);
 
         try {
-            $db->updateActionStatus($actionId, 'cancelled');
+            $db->deleteAction($actionId);
             do_action('aiagent_action_dismissed', $actionId, get_current_user_id());
-            wp_send_json_success(['message' => __('اقدام رد شد', 'forooshyar')]);
+            wp_send_json_success(['message' => __('اقدام حذف شد', 'forooshyar')]);
+        } catch (\Exception $e) {
+            wp_send_json_error(['message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * AJAX: Dismiss all pending actions (deletes them permanently)
+     *
+     * @return void
+     */
+    public function ajaxDismissAllActions()
+    {
+        check_ajax_referer('aiagent_nonce', 'nonce');
+
+        if (!current_user_can('manage_woocommerce')) {
+            wp_send_json_error(['message' => __('دسترسی غیرمجاز', 'forooshyar')], 403);
+        }
+
+        $db = Container::resolve(DatabaseService::class);
+
+        try {
+            $deleted = $db->deleteActionsByStatus(['pending', 'approved']);
+            do_action('aiagent_all_actions_dismissed', $deleted, get_current_user_id());
+            wp_send_json_success([
+                'message' => sprintf(__('%d اقدام حذف شد', 'forooshyar'), $deleted),
+                'deleted' => $deleted
+            ]);
+        } catch (\Exception $e) {
+            wp_send_json_error(['message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * AJAX: Approve all pending actions
+     *
+     * @return void
+     */
+    public function ajaxApproveAllActions()
+    {
+        check_ajax_referer('aiagent_nonce', 'nonce');
+
+        if (!current_user_can('manage_woocommerce')) {
+            wp_send_json_error(['message' => __('دسترسی غیرمجاز', 'forooshyar')], 403);
+        }
+
+        $db = Container::resolve(DatabaseService::class);
+
+        try {
+            $approved = $db->approveAllPendingActions(get_current_user_id());
+            do_action('aiagent_all_actions_approved', $approved, get_current_user_id());
+            wp_send_json_success([
+                'message' => sprintf(__('%d اقدام تأیید شد', 'forooshyar'), $approved),
+                'approved' => $approved
+            ]);
         } catch (\Exception $e) {
             wp_send_json_error(['message' => $e->getMessage()], 500);
         }

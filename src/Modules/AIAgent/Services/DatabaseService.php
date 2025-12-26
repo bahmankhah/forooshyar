@@ -383,6 +383,64 @@ class DatabaseService
     }
 
     /**
+     * Delete action permanently
+     *
+     * @param int $id
+     * @return bool
+     */
+    public function deleteAction($id)
+    {
+        global $wpdb;
+
+        return (bool) $wpdb->delete(
+            $this->actionsTable,
+            ['id' => $id],
+            ['%d']
+        );
+    }
+
+    /**
+     * Delete multiple actions by status
+     *
+     * @param array $statuses
+     * @return int Number of deleted rows
+     */
+    public function deleteActionsByStatus(array $statuses)
+    {
+        global $wpdb;
+
+        $placeholders = implode(',', array_fill(0, count($statuses), '%s'));
+        
+        return (int) $wpdb->query(
+            $wpdb->prepare(
+                "DELETE FROM {$this->actionsTable} WHERE status IN ({$placeholders})",
+                $statuses
+            )
+        );
+    }
+
+    /**
+     * Approve all pending actions
+     *
+     * @param int $userId
+     * @return int Number of approved actions
+     */
+    public function approveAllPendingActions($userId)
+    {
+        global $wpdb;
+
+        return (int) $wpdb->query(
+            $wpdb->prepare(
+                "UPDATE {$this->actionsTable} 
+                 SET status = 'approved', approved_by = %d, approved_at = %s 
+                 WHERE status = 'pending'",
+                $userId,
+                current_time('mysql')
+            )
+        );
+    }
+
+    /**
      * Increment retry count
      *
      * @param int $id
