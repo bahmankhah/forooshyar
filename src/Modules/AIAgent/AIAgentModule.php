@@ -62,6 +62,10 @@ class AIAgentModule
             return;
         }
 
+        // CRITICAL: Register Action Scheduler hooks EARLY - before any service resolution
+        // This ensures hooks are available when Action Scheduler tries to execute them
+        $this->registerActionSchedulerHooks();
+
         // Always register admin pages (even if module disabled, for settings access)
         $this->registerAdminPages();
         
@@ -90,6 +94,51 @@ class AIAgentModule
         $this->booted = true;
 
         do_action('aiagent_module_activated');
+    }
+
+    /**
+     * Register Action Scheduler hooks early in the boot process
+     * 
+     * This MUST be called before Action Scheduler tries to execute any scheduled actions.
+     * The hooks are registered directly here instead of in the service constructor
+     * because the service may not be instantiated when Action Scheduler runs.
+     *
+     * @return void
+     */
+    private function registerActionSchedulerHooks()
+    {
+        // Process single item (product or customer)
+        add_action(
+            ActionSchedulerJobManager::HOOK_PROCESS_ITEM,
+            function ($jobId, $entityType, $entityId) {
+                $jobManager = Container::resolve(ActionSchedulerJobManager::class);
+                $jobManager->processItem($jobId, $entityType, $entityId);
+            },
+            10,
+            3
+        );
+
+        // Complete job
+        add_action(
+            ActionSchedulerJobManager::HOOK_COMPLETE_JOB,
+            function ($jobId) {
+                $jobManager = Container::resolve(ActionSchedulerJobManager::class);
+                $jobManager->completeJob($jobId);
+            },
+            10,
+            1
+        );
+
+        // Cleanup job
+        add_action(
+            ActionSchedulerJobManager::HOOK_CLEANUP_JOB,
+            function ($jobId) {
+                $jobManager = Container::resolve(ActionSchedulerJobManager::class);
+                $jobManager->cleanupJob($jobId);
+            },
+            10,
+            1
+        );
     }
 
     /**

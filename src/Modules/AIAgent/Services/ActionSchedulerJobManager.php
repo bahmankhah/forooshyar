@@ -74,19 +74,8 @@ class ActionSchedulerJobManager
         $this->database = $database;
         $this->actionExecutor = $actionExecutor;
         
-        $this->registerHooks();
-    }
-
-    /**
-     * Register Action Scheduler hooks
-     *
-     * @return void
-     */
-    private function registerHooks()
-    {
-        add_action(self::HOOK_PROCESS_ITEM, [$this, 'processItem'], 10, 3);
-        add_action(self::HOOK_COMPLETE_JOB, [$this, 'completeJob'], 10, 1);
-        add_action(self::HOOK_CLEANUP_JOB, [$this, 'cleanupJob'], 10, 1);
+        // NOTE: Hooks are registered in AIAgentModule::registerActionSchedulerHooks()
+        // This ensures they are available BEFORE Action Scheduler tries to execute them
     }
 
     /**

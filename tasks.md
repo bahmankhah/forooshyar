@@ -13,9 +13,13 @@
   - قابلیت لغو کار در هر لحظه
   - سازگار با تمام هاست‌ها (بدون نیاز به shell commands)
   - قابل مشاهده در `/wp-admin/admin.php?page=action-scheduler`
+- **مشکل ثانویه**: خطای "No callbacks registered for aiagent_process_single_item"
+  - **علت**: هوک‌ها در constructor سرویس ثبت می‌شدند که خیلی دیر بود
+  - **راه‌حل**: ثبت هوک‌ها در `AIAgentModule::boot()` قبل از resolve شدن سرویس‌ها
+  - متد جدید `registerActionSchedulerHooks()` در `AIAgentModule` اضافه شد
 - **فایل‌های تغییر یافته**:
-  - `src/Modules/AIAgent/Services/ActionSchedulerJobManager.php` (جدید)
-  - `src/Modules/AIAgent/AIAgentModule.php` (ثبت سرویس جدید)
+  - `src/Modules/AIAgent/Services/ActionSchedulerJobManager.php` (جدید - حذف registerHooks از constructor)
+  - `src/Modules/AIAgent/AIAgentModule.php` (ثبت سرویس جدید + ثبت زودهنگام هوک‌ها)
   - `src/Controllers/AIAgentController.php` (استفاده از سرویس جدید)
   - `assets/js/ai-agent-admin.js` (حذف حلقه پردازش، فقط polling برای نمایش)
 
