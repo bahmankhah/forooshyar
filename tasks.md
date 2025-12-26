@@ -32,6 +32,21 @@
   - بروزرسانی `ScheduleFollowupAction` و `SchedulePriceChangeAction` برای استفاده از سرویس جدید
   - پردازش خودکار وظایف سررسید شده با WordPress Cron
 
+### 4. رکوردهای خلاصه تحلیل (run) در جدول analysis ✅
+- **مشکل**: رکوردهای با `entity_type = 'run'` و `entity_id = 0` در جدول `aiagent_analysis` ذخیره می‌شدند که باعث سردرگمی می‌شد
+- **توضیح**: این رکوردها خلاصه هر batch تحلیل هستند (تعداد محصولات تحلیل شده، اقدامات ایجاد شده و...)
+- **راه‌حل**:
+  - بروزرسانی `getAnalyses()` برای فیلتر کردن خودکار رکوردهای `entity_type = 'run'`
+  - بروزرسانی `getTodayAnalysesCount()` و `getTotalAnalysesCount()` برای exclude کردن run records
+  - بروزرسانی `getRecentAnalyses()` برای exclude کردن run records
+  - بروزرسانی `getPaginatedAnalyses()` برای exclude کردن run records
+  - بروزرسانی `getAnalysesCountByType()` برای exclude کردن run records
+  - بروزرسانی `getAnalysesByDay()` برای exclude کردن run records
+  - بروزرسانی `getStatistics()` برای exclude کردن run records از آمار روزانه
+  - بروزرسانی `getTotalTokensUsed()` برای exclude کردن run records
+  - بروزرسانی `getAvgResponseTime()` برای exclude کردن run records
+  - اضافه کردن متد جدید `getAnalysisRunHistory()` برای دسترسی به تاریخچه اجراها در صورت نیاز
+
 ---
 
 ## 🟡 بهبودهای پیشنهادی (اولویت متوسط)

@@ -102,7 +102,8 @@ class DatabaseService
     {
         global $wpdb;
 
-        $where = ['1=1'];
+        // Always exclude 'run' records (summary records) unless explicitly requested
+        $where = ["entity_type != 'run'"];
         $params = [];
 
         if (!empty($filters['analysis_type'])) {
@@ -111,7 +112,8 @@ class DatabaseService
         }
 
         if (!empty($filters['entity_type'])) {
-            $where[] = 'entity_type = %s';
+            // If entity_type is explicitly set, override the default exclusion
+            $where[0] = 'entity_type = %s';
             $params[] = $filters['entity_type'];
         }
 
@@ -526,7 +528,7 @@ class DatabaseService
     }
 
     /**
-     * Get today's analyses count
+     * Get today's analyses count (excluding run summaries)
      *
      * @return int
      */
@@ -535,7 +537,7 @@ class DatabaseService
         global $wpdb;
         $today = current_time('Y-m-d');
         return (int) $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$this->analysisTable} WHERE DATE(created_at) = %s",
+            "SELECT COUNT(*) FROM {$this->analysisTable} WHERE DATE(created_at) = %s AND entity_type != 'run'",
             $today
         ));
     }
@@ -551,11 +553,11 @@ class DatabaseService
         global $wpdb;
         $date = date('Y-m-d', strtotime("-{$days} days"));
 
-        // Daily analysis counts
+        // Daily analysis counts (excluding run summaries)
         $analysisDaily = $wpdb->get_results($wpdb->prepare(
             "SELECT DATE(created_at) as date, COUNT(*) as count 
              FROM {$this->analysisTable} 
-             WHERE created_at >= %s 
+             WHERE created_at >= %s AND entity_type != 'run'
              GROUP BY DATE(created_at) 
              ORDER BY date",
             $date
@@ -654,6 +656,31 @@ class DatabaseService
     }
 
     /**
+     * Get analysis run history (summary records)
+     *
+     * @param int $limit
+     * @return array
+     */
+    public function getAnalysisRunHistory($limit = 20)
+    {
+        global $wpdb;
+
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$this->analysisTable} 
+             WHERE entity_type = 'run'
+             ORDER BY created_at DESC 
+             LIMIT %d",
+            $limit
+        ), ARRAY_A);
+
+        foreach ($rows as &$row) {
+            $row['analysis_data'] = json_decode($row['analysis_data'], true);
+        }
+
+        return $rows;
+    }
+
+    /**
      * Check if database tables exist
      *
      * @return bool
@@ -682,14 +709,14 @@ class DatabaseService
     }
 
     /**
-     * Get total analyses count
+     * Get total analyses count (excluding run summaries)
      *
      * @return int
      */
     public function getTotalAnalysesCount()
     {
         global $wpdb;
-        return (int) $wpdb->get_var("SELECT COUNT(*) FROM {$this->analysisTable}");
+        return (int) $wpdb->get_var("SELECT COUNT(*) FROM {$this->analysisTable} WHERE entity_type != 'run'");
     }
 
     /**
@@ -1010,7 +1037,7 @@ class DatabaseService
     }
 
     /**
-     * Get total tokens used
+     * Get total tokens used (excluding run summaries)
      *
      * @param int $days
      * @return int
@@ -1021,13 +1048,13 @@ class DatabaseService
         $date = date('Y-m-d', strtotime("-{$days} days"));
 
         return (int) $wpdb->get_var($wpdb->prepare(
-            "SELECT SUM(tokens_used) FROM {$this->analysisTable} WHERE created_at >= %s",
+            "SELECT SUM(tokens_used) FROM {$this->analysisTable} WHERE created_at >= %s AND entity_type != 'run'",
             $date
         ));
     }
 
     /**
-     * Get average response time
+     * Get average response time (excluding run summaries)
      *
      * @param int $days
      * @return float
@@ -1038,7 +1065,7 @@ class DatabaseService
         $date = date('Y-m-d', strtotime("-{$days} days"));
 
         $avg = $wpdb->get_var($wpdb->prepare(
-            "SELECT AVG(duration_ms) FROM {$this->analysisTable} WHERE created_at >= %s AND duration_ms > 0",
+            "SELECT AVG(duration_ms) FROM {$this->analysisTable} WHERE created_at >= %s AND duration_ms > 0 AND entity_type != 'run'",
             $date
         ));
 
