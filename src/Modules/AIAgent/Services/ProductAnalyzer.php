@@ -301,13 +301,75 @@ class ProductAnalyzer implements AnalyzerInterface
         {
             \"type\": \"نوع_اقدام\",
             \"priority\": 1-100,
-            \"data\": {},
+            \"data\": {جزئیات اقدام},
             \"reasoning\": \"دلیل پیشنهاد این اقدام به فارسی\"
         }
     ]
 }
 
-انواع اقدامات مجاز: send_email, create_discount, update_product, create_campaign, schedule_followup, create_bundle, inventory_alert, schedule_price_change
+انواع اقدامات مجاز و ساختار data برای هر کدام:
+
+1. create_discount - ایجاد کد تخفیف:
+   data: {
+       \"discount_percent\": عدد (مثلاً 15),
+       \"discount_code\": \"کد پیشنهادی به انگلیسی\",
+       \"valid_days\": تعداد روز اعتبار,
+       \"description\": \"توضیح تخفیف به فارسی\"
+   }
+
+2. send_email - ارسال ایمیل تبلیغاتی:
+   data: {
+       \"subject\": \"موضوع ایمیل به فارسی\",
+       \"message\": \"متن کامل ایمیل به فارسی\",
+       \"email_type\": \"promotional\" یا \"reminder\"
+   }
+
+3. send_sms - ارسال پیامک:
+   data: {
+       \"message\": \"متن پیامک به فارسی (حداکثر 70 کاراکتر)\"
+   }
+
+4. update_product - بروزرسانی محصول:
+   data: {
+       \"new_price\": قیمت جدید (عدد),
+       \"price_change_percent\": درصد تغییر,
+       \"update_description\": \"توضیح تغییر به فارسی\"
+   }
+
+5. create_campaign - ایجاد کمپین بازاریابی:
+   data: {
+       \"campaign_name\": \"نام کمپین به فارسی\",
+       \"campaign_message\": \"پیام کمپین به فارسی\",
+       \"target_audience\": \"مخاطبان هدف به فارسی\",
+       \"duration_days\": تعداد روز
+   }
+
+6. schedule_followup - زمان‌بندی پیگیری:
+   data: {
+       \"followup_days\": تعداد روز بعد,
+       \"followup_message\": \"پیام پیگیری به فارسی\",
+       \"followup_type\": \"email\" یا \"sms\"
+   }
+
+7. inventory_alert - هشدار موجودی:
+   data: {
+       \"alert_message\": \"پیام هشدار به فارسی\",
+       \"recommended_quantity\": تعداد پیشنهادی سفارش
+   }
+
+8. schedule_price_change - زمان‌بندی تغییر قیمت:
+   data: {
+       \"new_price\": قیمت جدید,
+       \"change_date\": \"تاریخ تغییر\",
+       \"change_reason\": \"دلیل تغییر به فارسی\"
+   }
+
+9. create_bundle - ایجاد بسته محصولات:
+   data: {
+       \"bundle_name\": \"نام بسته به فارسی\",
+       \"bundle_discount\": درصد تخفیف بسته,
+       \"bundle_description\": \"توضیح بسته به فارسی\"
+   }
 
 راهنمای اولویت:
 - 90-100: بحرانی - نیاز به اقدام فوری
@@ -316,7 +378,10 @@ class ProductAnalyzer implements AnalyzerInterface
 - 30-49: پایین - بهینه‌سازی جزئی
 - 1-29: تأثیر حداقلی
 
-مهم: تمام متن‌های analysis و reasoning باید به زبان فارسی باشند.";
+مهم: 
+- تمام متن‌های analysis، reasoning و محتوای data باید به زبان فارسی باشند
+- متن‌های ایمیل و پیامک باید کامل و آماده ارسال باشند
+- کدهای تخفیف به انگلیسی باشند";
     }
 
     /**

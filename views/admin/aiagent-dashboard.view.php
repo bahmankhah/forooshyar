@@ -112,6 +112,150 @@ function aiagent_get_action_reasoning($action) {
     
     return '';
 }
+
+/**
+ * Format action details for display
+ */
+function aiagent_format_action_details($actionType, $data) {
+    if (empty($data) || !is_array($data)) {
+        return '';
+    }
+    
+    $details = [];
+    
+    switch ($actionType) {
+        case 'create_discount':
+            if (!empty($data['discount_percent'])) {
+                $details[] = '<strong>' . esc_html($data['discount_percent']) . '%</strong> تخفیف';
+            }
+            if (!empty($data['discount_code'])) {
+                $details[] = 'کد: <code>' . esc_html($data['discount_code']) . '</code>';
+            }
+            if (!empty($data['valid_days'])) {
+                $details[] = esc_html($data['valid_days']) . ' روز اعتبار';
+            }
+            if (!empty($data['description'])) {
+                $details[] = esc_html($data['description']);
+            }
+            break;
+            
+        case 'send_email':
+            if (!empty($data['subject'])) {
+                $details[] = '<strong>موضوع:</strong> ' . esc_html($data['subject']);
+            }
+            if (!empty($data['message'])) {
+                $msg = mb_strlen($data['message']) > 100 ? mb_substr($data['message'], 0, 100) . '...' : $data['message'];
+                $details[] = '<strong>پیام:</strong> ' . esc_html($msg);
+            }
+            break;
+            
+        case 'send_sms':
+            if (!empty($data['message'])) {
+                $details[] = '<strong>پیامک:</strong> ' . esc_html($data['message']);
+            }
+            break;
+            
+        case 'update_product':
+            if (!empty($data['new_price'])) {
+                $details[] = 'قیمت جدید: <strong>' . number_format($data['new_price']) . '</strong>';
+            }
+            if (!empty($data['price_change_percent'])) {
+                $sign = $data['price_change_percent'] > 0 ? '+' : '';
+                $details[] = 'تغییر: ' . $sign . esc_html($data['price_change_percent']) . '%';
+            }
+            if (!empty($data['update_description'])) {
+                $details[] = esc_html($data['update_description']);
+            }
+            break;
+            
+        case 'create_campaign':
+            if (!empty($data['campaign_name'])) {
+                $details[] = '<strong>' . esc_html($data['campaign_name']) . '</strong>';
+            }
+            if (!empty($data['campaign_message'])) {
+                $msg = mb_strlen($data['campaign_message']) > 80 ? mb_substr($data['campaign_message'], 0, 80) . '...' : $data['campaign_message'];
+                $details[] = esc_html($msg);
+            }
+            if (!empty($data['duration_days'])) {
+                $details[] = esc_html($data['duration_days']) . ' روز';
+            }
+            break;
+            
+        case 'schedule_followup':
+            if (!empty($data['followup_days'])) {
+                $details[] = 'پیگیری در ' . esc_html($data['followup_days']) . ' روز آینده';
+            }
+            if (!empty($data['followup_type'])) {
+                $typeLabel = $data['followup_type'] === 'email' ? 'ایمیل' : 'پیامک';
+                $details[] = 'از طریق ' . $typeLabel;
+            }
+            if (!empty($data['followup_message'])) {
+                $msg = mb_strlen($data['followup_message']) > 60 ? mb_substr($data['followup_message'], 0, 60) . '...' : $data['followup_message'];
+                $details[] = esc_html($msg);
+            }
+            break;
+            
+        case 'inventory_alert':
+            if (!empty($data['alert_message'])) {
+                $details[] = esc_html($data['alert_message']);
+            }
+            if (!empty($data['recommended_quantity'])) {
+                $details[] = 'سفارش پیشنهادی: ' . esc_html($data['recommended_quantity']) . ' عدد';
+            }
+            break;
+            
+        case 'schedule_price_change':
+            if (!empty($data['new_price'])) {
+                $details[] = 'قیمت جدید: <strong>' . number_format($data['new_price']) . '</strong>';
+            }
+            if (!empty($data['change_date'])) {
+                $details[] = 'تاریخ: ' . esc_html($data['change_date']);
+            }
+            if (!empty($data['change_reason'])) {
+                $details[] = esc_html($data['change_reason']);
+            }
+            break;
+            
+        case 'create_bundle':
+            if (!empty($data['bundle_name'])) {
+                $details[] = '<strong>' . esc_html($data['bundle_name']) . '</strong>';
+            }
+            if (!empty($data['bundle_discount'])) {
+                $details[] = esc_html($data['bundle_discount']) . '% تخفیف بسته';
+            }
+            if (!empty($data['bundle_description'])) {
+                $details[] = esc_html($data['bundle_description']);
+            }
+            break;
+            
+        case 'loyalty_reward':
+            if (!empty($data['reward_type'])) {
+                $typeLabels = [
+                    'discount' => 'تخفیف',
+                    'free_shipping' => 'ارسال رایگان',
+                    'gift' => 'هدیه'
+                ];
+                $details[] = '<strong>' . ($typeLabels[$data['reward_type']] ?? $data['reward_type']) . '</strong>';
+            }
+            if (!empty($data['reward_value'])) {
+                $details[] = 'مقدار: ' . esc_html($data['reward_value']);
+            }
+            if (!empty($data['reward_code'])) {
+                $details[] = 'کد: <code>' . esc_html($data['reward_code']) . '</code>';
+            }
+            if (!empty($data['reward_message'])) {
+                $msg = mb_strlen($data['reward_message']) > 60 ? mb_substr($data['reward_message'], 0, 60) . '...' : $data['reward_message'];
+                $details[] = esc_html($msg);
+            }
+            break;
+    }
+    
+    if (empty($details)) {
+        return '';
+    }
+    
+    return '<div class="action-details">' . implode(' <span class="sep">|</span> ', $details) . '</div>';
+}
 ?>
 <div class="wrap aiagent-dashboard" dir="rtl">
     <h1 class="wp-heading-inline"><?php _e('دستیار فروش هوشمند', 'forooshyar'); ?></h1>
@@ -396,11 +540,16 @@ function aiagent_get_action_reasoning($action) {
                         </span>
                     </td>
                     <td>
+                        <?php 
+                        $actionDetails = aiagent_format_action_details($action['action_type'], $actionData);
+                        if ($actionDetails): ?>
+                        <?php echo $actionDetails; ?>
+                        <?php endif; ?>
                         <?php if ($reasoning): ?>
-                        <div style="max-height: 60px; overflow: hidden; font-size: 12px; color: #555; line-height: 1.4;">
+                        <div style="max-height: 40px; overflow: hidden; font-size: 11px; color: #777; line-height: 1.4; margin-top: 5px;">
                             <?php echo esc_html($reasoning); ?>
                         </div>
-                        <?php else: ?>
+                        <?php elseif (!$actionDetails): ?>
                         <span style="color: #999;">-</span>
                         <?php endif; ?>
                     </td>
@@ -550,11 +699,16 @@ function aiagent_get_action_reasoning($action) {
                         <span style="font-weight: 600;"><?php echo esc_html($action['priority_score']); ?></span>
                     </td>
                     <td>
+                        <?php 
+                        $actionDetails = aiagent_format_action_details($action['action_type'], $actionData);
+                        if ($actionDetails): ?>
+                        <?php echo $actionDetails; ?>
+                        <?php endif; ?>
                         <?php if ($reasoning): ?>
-                        <div style="max-height: 60px; overflow: hidden; font-size: 12px; color: #555; line-height: 1.4;">
+                        <div style="max-height: 40px; overflow: hidden; font-size: 11px; color: #777; line-height: 1.4; margin-top: 5px;">
                             <?php echo esc_html($reasoning); ?>
                         </div>
-                        <?php else: ?>
+                        <?php elseif (!$actionDetails): ?>
                         <span style="color: #999;">-</span>
                         <?php endif; ?>
                     </td>
@@ -769,11 +923,16 @@ function aiagent_get_action_reasoning($action) {
                         <span style="font-weight: 600;"><?php echo esc_html($action['priority_score']); ?></span>
                     </td>
                     <td>
+                        <?php 
+                        $actionDetails = aiagent_format_action_details($action['action_type'], $actionData);
+                        if ($actionDetails): ?>
+                        <?php echo $actionDetails; ?>
+                        <?php endif; ?>
                         <?php if ($reasoning): ?>
-                        <div style="max-height: 40px; overflow: hidden; font-size: 12px; color: #555;">
+                        <div style="max-height: 30px; overflow: hidden; font-size: 11px; color: #777; margin-top: 5px;">
                             <?php echo esc_html($reasoning); ?>
                         </div>
-                        <?php else: ?>
+                        <?php elseif (!$actionDetails): ?>
                         <span style="color: #999;">-</span>
                         <?php endif; ?>
                     </td>
@@ -877,6 +1036,33 @@ function aiagent_get_action_reasoning($action) {
 /* Suggestions badge hover */
 .suggestions-badge:hover {
     background: #cce5ff !important;
+}
+
+/* Action details styling */
+.action-details {
+    font-size: 12px;
+    color: #333;
+    line-height: 1.5;
+    background: #f8f9fa;
+    padding: 6px 10px;
+    border-radius: 4px;
+    border-right: 3px solid #0073aa;
+}
+
+.action-details strong {
+    color: #0073aa;
+}
+
+.action-details code {
+    background: #e9ecef;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 11px;
+}
+
+.action-details .sep {
+    color: #ccc;
+    margin: 0 5px;
 }
 
 /* Modal styles */
@@ -1323,6 +1509,88 @@ jQuery(document).ready(function($) {
     // Action type labels for modal
     var actionTypeLabels = <?php echo wp_json_encode($actionTypeLabels); ?>;
 
+    // Format action details for modal display
+    function formatActionDetailsJS(type, data) {
+        if (!data || typeof data !== 'object') return '';
+        
+        var details = [];
+        
+        switch (type) {
+            case 'create_discount':
+                if (data.discount_percent) details.push('<strong>' + data.discount_percent + '%</strong> تخفیف');
+                if (data.discount_code) details.push('کد: <code>' + data.discount_code + '</code>');
+                if (data.valid_days) details.push(data.valid_days + ' روز اعتبار');
+                if (data.description) details.push(data.description);
+                break;
+            case 'send_email':
+                if (data.subject) details.push('<strong>موضوع:</strong> ' + data.subject);
+                if (data.message) {
+                    var msg = data.message.length > 80 ? data.message.substring(0, 80) + '...' : data.message;
+                    details.push('<strong>پیام:</strong> ' + msg);
+                }
+                break;
+            case 'send_sms':
+                if (data.message) details.push('<strong>پیامک:</strong> ' + data.message);
+                break;
+            case 'update_product':
+                if (data.new_price) details.push('قیمت جدید: <strong>' + Number(data.new_price).toLocaleString() + '</strong>');
+                if (data.price_change_percent) {
+                    var sign = data.price_change_percent > 0 ? '+' : '';
+                    details.push('تغییر: ' + sign + data.price_change_percent + '%');
+                }
+                if (data.update_description) details.push(data.update_description);
+                break;
+            case 'create_campaign':
+                if (data.campaign_name) details.push('<strong>' + data.campaign_name + '</strong>');
+                if (data.campaign_message) {
+                    var msg = data.campaign_message.length > 60 ? data.campaign_message.substring(0, 60) + '...' : data.campaign_message;
+                    details.push(msg);
+                }
+                if (data.duration_days) details.push(data.duration_days + ' روز');
+                break;
+            case 'schedule_followup':
+                if (data.followup_days) details.push('پیگیری در ' + data.followup_days + ' روز آینده');
+                if (data.followup_type) {
+                    var typeLabel = data.followup_type === 'email' ? 'ایمیل' : 'پیامک';
+                    details.push('از طریق ' + typeLabel);
+                }
+                if (data.followup_message) {
+                    var msg = data.followup_message.length > 50 ? data.followup_message.substring(0, 50) + '...' : data.followup_message;
+                    details.push(msg);
+                }
+                break;
+            case 'inventory_alert':
+                if (data.alert_message) details.push(data.alert_message);
+                if (data.recommended_quantity) details.push('سفارش پیشنهادی: ' + data.recommended_quantity + ' عدد');
+                break;
+            case 'schedule_price_change':
+                if (data.new_price) details.push('قیمت جدید: <strong>' + Number(data.new_price).toLocaleString() + '</strong>');
+                if (data.change_date) details.push('تاریخ: ' + data.change_date);
+                if (data.change_reason) details.push(data.change_reason);
+                break;
+            case 'create_bundle':
+                if (data.bundle_name) details.push('<strong>' + data.bundle_name + '</strong>');
+                if (data.bundle_discount) details.push(data.bundle_discount + '% تخفیف بسته');
+                if (data.bundle_description) details.push(data.bundle_description);
+                break;
+            case 'loyalty_reward':
+                if (data.reward_type) {
+                    var typeLabels = { 'discount': 'تخفیف', 'free_shipping': 'ارسال رایگان', 'gift': 'هدیه' };
+                    details.push('<strong>' + (typeLabels[data.reward_type] || data.reward_type) + '</strong>');
+                }
+                if (data.reward_value) details.push('مقدار: ' + data.reward_value);
+                if (data.reward_code) details.push('کد: <code>' + data.reward_code + '</code>');
+                if (data.reward_message) {
+                    var msg = data.reward_message.length > 50 ? data.reward_message.substring(0, 50) + '...' : data.reward_message;
+                    details.push(msg);
+                }
+                break;
+        }
+        
+        if (details.length === 0) return '';
+        return '<div class="action-details">' + details.join(' <span class="sep">|</span> ') + '</div>';
+    }
+
     // Suggestions modal
     $(document).on('click', '.suggestions-badge', function(e) {
         e.preventDefault();
@@ -1336,15 +1604,29 @@ jQuery(document).ready(function($) {
             var type = suggestion.type || '';
             var typeLabel = actionTypeLabels[type] || type;
             var priority = suggestion.priority || 0;
-            var reasoning = suggestion.reasoning || suggestion.data?.reasoning || '-';
+            var reasoning = suggestion.reasoning || '-';
+            var data = suggestion.data || {};
             
             var priorityClass = priority >= 70 ? 'high' : (priority >= 50 ? 'medium' : 'low');
             var priorityBg = priority >= 70 ? '#ffeaea' : (priority >= 50 ? '#fff3cd' : '#e8f5e9');
             
+            // Format action details
+            var actionDetails = formatActionDetailsJS(type, data);
+            var descriptionHtml = '';
+            if (actionDetails) {
+                descriptionHtml += actionDetails;
+            }
+            if (reasoning && reasoning !== '-') {
+                descriptionHtml += '<div style="font-size: 11px; color: #777; margin-top: 5px;">' + reasoning + '</div>';
+            }
+            if (!descriptionHtml) {
+                descriptionHtml = '<span style="color: #999;">-</span>';
+            }
+            
             var row = '<tr>' +
                 '<td><strong>' + typeLabel + '</strong></td>' +
                 '<td><span style="font-weight: 600; padding: 3px 8px; border-radius: 3px; background: ' + priorityBg + ';">' + priority + '</span></td>' +
-                '<td style="font-size: 12px; color: #555;">' + reasoning + '</td>' +
+                '<td>' + descriptionHtml + '</td>' +
                 '</tr>';
             $tbody.append(row);
         });

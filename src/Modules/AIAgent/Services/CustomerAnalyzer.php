@@ -316,13 +316,56 @@ class CustomerAnalyzer implements AnalyzerInterface
         {
             \"type\": \"نوع_اقدام\",
             \"priority\": 1-100,
-            \"data\": {\"customer_id\": شناسه, ...},
+            \"data\": {جزئیات اقدام},
             \"reasoning\": \"دلیل پیشنهاد این اقدام به فارسی\"
         }
     ]
 }
 
-انواع اقدامات مجاز: send_email, create_discount, schedule_followup, loyalty_reward, create_campaign
+انواع اقدامات مجاز و ساختار data برای هر کدام:
+
+1. send_email - ارسال ایمیل به مشتری:
+   data: {
+       \"subject\": \"موضوع ایمیل به فارسی\",
+       \"message\": \"متن کامل ایمیل به فارسی\",
+       \"email_type\": \"welcome\" یا \"reactivation\" یا \"loyalty\" یا \"promotional\"
+   }
+
+2. send_sms - ارسال پیامک به مشتری:
+   data: {
+       \"message\": \"متن پیامک به فارسی (حداکثر 70 کاراکتر)\"
+   }
+
+3. create_discount - ایجاد کد تخفیف اختصاصی:
+   data: {
+       \"discount_percent\": عدد (مثلاً 20),
+       \"discount_code\": \"کد پیشنهادی به انگلیسی\",
+       \"valid_days\": تعداد روز اعتبار,
+       \"description\": \"توضیح تخفیف به فارسی\"
+   }
+
+4. schedule_followup - زمان‌بندی پیگیری:
+   data: {
+       \"followup_days\": تعداد روز بعد,
+       \"followup_message\": \"پیام پیگیری به فارسی\",
+       \"followup_type\": \"email\" یا \"sms\"
+   }
+
+5. loyalty_reward - پاداش وفاداری:
+   data: {
+       \"reward_type\": \"discount\" یا \"free_shipping\" یا \"gift\",
+       \"reward_value\": مقدار پاداش,
+       \"reward_message\": \"پیام تقدیر به فارسی\",
+       \"reward_code\": \"کد پاداش به انگلیسی\"
+   }
+
+6. create_campaign - ایجاد کمپین هدفمند:
+   data: {
+       \"campaign_name\": \"نام کمپین به فارسی\",
+       \"campaign_message\": \"پیام کمپین به فارسی\",
+       \"campaign_type\": \"reactivation\" یا \"upsell\" یا \"retention\",
+       \"duration_days\": تعداد روز
+   }
 
 بخش‌بندی مشتریان:
 - new: خریداران اولین بار که نیاز به آشناسازی دارند
@@ -338,7 +381,10 @@ class CustomerAnalyzer implements AnalyzerInterface
 - 30-49: پایین - بهینه‌سازی جزئی
 - 1-29: تأثیر حداقلی
 
-مهم: تمام متن‌های analysis و reasoning باید به زبان فارسی باشند.";
+مهم: 
+- تمام متن‌های analysis، reasoning و محتوای data باید به زبان فارسی باشند
+- متن‌های ایمیل و پیامک باید کامل و آماده ارسال باشند
+- کدهای تخفیف و پاداش به انگلیسی باشند";
     }
 
     /**
