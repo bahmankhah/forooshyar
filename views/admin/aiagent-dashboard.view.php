@@ -81,6 +81,37 @@ function aiagent_priority_class($score) {
     if ($score >= 50) return 'medium';
     return 'low';
 }
+
+/**
+ * Get reasoning for an action - from action_data or from linked analysis
+ */
+function aiagent_get_action_reasoning($action) {
+    $actionData = $action['action_data'] ?? [];
+    
+    // First try to get from action_data
+    if (!empty($actionData['reasoning'])) {
+        return $actionData['reasoning'];
+    }
+    
+    // If not found and we have analysis_id, try to get from analysis suggestions
+    if (!empty($action['analysis_id'])) {
+        $db = \Forooshyar\WPLite\Container::resolve(\Forooshyar\Modules\AIAgent\Services\DatabaseService::class);
+        $analysis = $db->getAnalysis($action['analysis_id']);
+        
+        if ($analysis && !empty($analysis['suggestions'])) {
+            // Find the suggestion that matches this action type
+            foreach ($analysis['suggestions'] as $suggestion) {
+                if (($suggestion['type'] ?? '') === $action['action_type']) {
+                    if (!empty($suggestion['reasoning'])) {
+                        return $suggestion['reasoning'];
+                    }
+                }
+            }
+        }
+    }
+    
+    return '';
+}
 ?>
 <div class="wrap aiagent-dashboard" dir="rtl">
     <h1 class="wp-heading-inline"><?php _e('دستیار فروش هوشمند', 'forooshyar'); ?></h1>
@@ -325,7 +356,7 @@ function aiagent_priority_class($score) {
             <tbody>
                 <?php foreach ($actionsData['items'] as $action): 
                     $actionData = $action['action_data'] ?? [];
-                    $reasoning = $actionData['reasoning'] ?? '';
+                    $reasoning = aiagent_get_action_reasoning($action);
                     
                     // Get entity info for display
                     $entityInfo = '';
@@ -475,7 +506,7 @@ function aiagent_priority_class($score) {
             <tbody>
                 <?php foreach ($actionsData['items'] as $action): 
                     $actionData = $action['action_data'] ?? [];
-                    $reasoning = $actionData['reasoning'] ?? '';
+                    $reasoning = aiagent_get_action_reasoning($action);
                     
                     // Get entity info for display
                     $entityInfo = '';
@@ -722,7 +753,7 @@ function aiagent_priority_class($score) {
             <tbody>
                 <?php foreach ($actionsData['items'] as $action): 
                     $actionData = $action['action_data'] ?? [];
-                    $reasoning = $actionData['reasoning'] ?? '';
+                    $reasoning = aiagent_get_action_reasoning($action);
                 ?>
                 <tr>
                     <td><?php echo esc_html($action['id']); ?></td>
