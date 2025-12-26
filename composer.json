@@ -13,7 +13,10 @@
     "autoload": {
         "psr-4": {
             "Forooshyar\\": "src/"
-        }
+        },
+        "files": [
+            "src/WPLite/Helpers/main.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {
