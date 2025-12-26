@@ -13,12 +13,12 @@ return [
         'tiers' => [
             'free' => [
                 'name' => 'رایگان',
-                'features' => ['product_analysis'],
+                'features' => ['product_analysis', 'customer_analysis'],
                 'limits' => [
                     'analyses_per_day' => 5,
-                    'actions_per_day' => 0,
+                    'actions_per_day' => 10,
                     'products_per_analysis' => 10,
-                    'customers_per_analysis' => 0,
+                    'customers_per_analysis' => 20,
                 ],
                 'llm_providers' => ['ollama'],
             ],
@@ -61,6 +61,70 @@ return [
                 ],
                 'llm_providers' => ['*'],
             ],
+        ],
+    ],
+
+    // All available action types with their labels and settings
+    'action_types' => [
+        'send_email' => [
+            'label' => 'ارسال ایمیل',
+            'description' => 'ارسال ایمیل به مشتری یا مدیر',
+            'default_enabled' => true,
+            'requires_approval' => false,
+        ],
+        'send_sms' => [
+            'label' => 'ارسال پیامک',
+            'description' => 'ارسال پیامک به مشتری',
+            'default_enabled' => false,
+            'requires_approval' => false,
+        ],
+        'create_discount' => [
+            'label' => 'ایجاد تخفیف',
+            'description' => 'ایجاد کد تخفیف برای مشتری یا محصول',
+            'default_enabled' => true,
+            'requires_approval' => true,
+        ],
+        'update_product' => [
+            'label' => 'بروزرسانی محصول',
+            'description' => 'تغییر قیمت، موجودی یا اطلاعات محصول',
+            'default_enabled' => true,
+            'requires_approval' => true,
+        ],
+        'create_campaign' => [
+            'label' => 'ایجاد کمپین',
+            'description' => 'ایجاد کمپین بازاریابی',
+            'default_enabled' => true,
+            'requires_approval' => false,
+        ],
+        'schedule_followup' => [
+            'label' => 'زمان‌بندی پیگیری',
+            'description' => 'زمان‌بندی پیگیری با مشتری',
+            'default_enabled' => true,
+            'requires_approval' => false,
+        ],
+        'create_bundle' => [
+            'label' => 'ایجاد بسته',
+            'description' => 'ایجاد بسته محصولات',
+            'default_enabled' => false,
+            'requires_approval' => true,
+        ],
+        'inventory_alert' => [
+            'label' => 'هشدار موجودی',
+            'description' => 'ارسال هشدار کمبود موجودی',
+            'default_enabled' => true,
+            'requires_approval' => false,
+        ],
+        'loyalty_reward' => [
+            'label' => 'پاداش وفاداری',
+            'description' => 'اعطای پاداش به مشتریان وفادار',
+            'default_enabled' => false,
+            'requires_approval' => true,
+        ],
+        'schedule_price_change' => [
+            'label' => 'زمان‌بندی تغییر قیمت',
+            'description' => 'زمان‌بندی تغییر قیمت محصول',
+            'default_enabled' => false,
+            'requires_approval' => true,
         ],
     ],
 
@@ -250,36 +314,12 @@ return [
             'section' => 'actions',
             'description' => 'حداکثر تعداد تلاش برای اقدامات ناموفق',
         ],
-        'actions_enabled_types' => [
-            'type' => 'multiselect',
-            'default' => ['send_email', 'create_discount', 'update_product', 'create_campaign', 'schedule_followup', 'inventory_alert'],
-            'options' => [
-                'send_email' => 'ارسال ایمیل',
-                'send_sms' => 'ارسال پیامک',
-                'create_discount' => 'ایجاد تخفیف',
-                'update_product' => 'بروزرسانی محصول',
-                'create_campaign' => 'ایجاد کمپین',
-                'schedule_followup' => 'زمان‌بندی پیگیری',
-                'create_bundle' => 'ایجاد بسته',
-                'inventory_alert' => 'هشدار موجودی',
-                'loyalty_reward' => 'پاداش وفاداری',
-                'schedule_price_change' => 'زمان‌بندی تغییر قیمت',
-            ],
-            'label' => 'انواع اقدامات فعال',
+        // Action types settings - unified list with enabled/approval flags
+        'actions_config' => [
+            'type' => 'action_types',
+            'label' => 'تنظیمات انواع اقدامات',
             'section' => 'actions',
-            'description' => 'انواع اقداماتی که سیستم می‌تواند پیشنهاد و اجرا کند',
-        ],
-        'actions_require_approval' => [
-            'type' => 'multiselect',
-            'default' => ['create_discount', 'update_product'],
-            'options' => [
-                'create_discount' => 'ایجاد تخفیف',
-                'update_product' => 'بروزرسانی محصول',
-                'schedule_price_change' => 'زمان‌بندی تغییر قیمت',
-            ],
-            'label' => 'اقدامات نیازمند تأیید',
-            'section' => 'actions',
-            'description' => 'این اقدامات قبل از اجرا نیاز به تأیید دستی دارند',
+            'description' => 'انواع اقداماتی که سیستم می‌تواند پیشنهاد و اجرا کند و تنظیمات تأیید آن‌ها',
         ],
 
         // Schedule Settings

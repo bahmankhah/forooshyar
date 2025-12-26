@@ -287,7 +287,9 @@ function aiagent_priority_class($score) {
             <h3 style="margin-top: 0; padding-bottom: 10px; border-bottom: 1px solid #eee;">
                 <?php _e('فعالیت ۳۰ روز گذشته', 'forooshyar'); ?>
             </h3>
-            <canvas id="activity-chart" height="80"></canvas>
+            <div style="position: relative; height: 250px; width: 100%;">
+                <canvas id="activity-chart"></canvas>
+            </div>
         </div>
 
         <?php elseif ($currentTab === 'pending'): ?>
@@ -558,9 +560,22 @@ function aiagent_priority_class($score) {
                         <?php endif; ?>
                     </td>
                     <td>
-                        <?php if (!empty($suggestions)): ?>
-                        <span style="background: #e7f3ff; color: #0073aa; padding: 3px 8px; border-radius: 3px; font-size: 11px;">
+                        <?php if (!empty($suggestions)): 
+                            // Build tooltip content with action types
+                            $tooltipItems = [];
+                            foreach ($suggestions as $suggestion) {
+                                $type = $suggestion['type'] ?? '';
+                                $typeLabel = $actionTypeLabels[$type] ?? $type;
+                                $tooltipItems[] = '• ' . $typeLabel;
+                            }
+                            $tooltipContent = implode("\n", $tooltipItems);
+                        ?>
+                        <span class="suggestions-badge" 
+                              style="background: #e7f3ff; color: #0073aa; padding: 3px 8px; border-radius: 3px; font-size: 11px; cursor: pointer; position: relative;"
+                              data-suggestions="<?php echo esc_attr(wp_json_encode($suggestions)); ?>"
+                              title="<?php echo esc_attr($tooltipContent); ?>">
                             <?php echo count($suggestions); ?> <?php _e('پیشنهاد', 'forooshyar'); ?>
+                            <span class="dashicons dashicons-info" style="font-size: 14px; vertical-align: middle; margin-right: 3px;"></span>
                         </span>
                         <?php else: ?>
                         <span style="color: #999;">-</span>
@@ -693,6 +708,30 @@ function aiagent_priority_class($score) {
     </div>
 </div>
 
+<!-- Suggestions Modal -->
+<div id="suggestions-modal" class="aiagent-modal" style="display: none;">
+    <div class="aiagent-modal-overlay"></div>
+    <div class="aiagent-modal-content" dir="rtl">
+        <div class="aiagent-modal-header">
+            <h3><?php _e('پیشنهادات هوش مصنوعی', 'forooshyar'); ?></h3>
+            <button type="button" class="aiagent-modal-close">&times;</button>
+        </div>
+        <div class="aiagent-modal-body">
+            <table class="wp-list-table widefat fixed striped">
+                <thead>
+                    <tr>
+                        <th style="width: 30%;"><?php _e('نوع اقدام', 'forooshyar'); ?></th>
+                        <th style="width: 15%;"><?php _e('اولویت', 'forooshyar'); ?></th>
+                        <th style="width: 55%;"><?php _e('توضیحات', 'forooshyar'); ?></th>
+                    </tr>
+                </thead>
+                <tbody id="suggestions-modal-body">
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 <style>
 /* Priority colors */
 .priority-high { color: #d9534f; }
@@ -719,6 +758,84 @@ function aiagent_priority_class($score) {
 /* Nav tab count badges */
 .nav-tab .count {
     vertical-align: middle;
+}
+
+/* Suggestions badge hover */
+.suggestions-badge:hover {
+    background: #cce5ff !important;
+}
+
+/* Modal styles */
+.aiagent-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100000;
+}
+
+.aiagent-modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.aiagent-modal-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 5px 30px rgba(0, 0, 0, 0.3);
+    max-width: 700px;
+    width: 90%;
+    max-height: 80vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.aiagent-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid #ddd;
+    background: #f5f5f5;
+}
+
+.aiagent-modal-header h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.aiagent-modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+    padding: 0;
+    line-height: 1;
+}
+
+.aiagent-modal-close:hover {
+    color: #d9534f;
+}
+
+.aiagent-modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    max-height: calc(80vh - 60px);
+}
+
+.aiagent-modal-body .wp-list-table {
+    margin: 0;
 }
 </style>
 
@@ -964,6 +1081,50 @@ jQuery(document).ready(function($) {
                 updateProgressUI(response.data);
                 startProgressPolling();
             }
+        }
+    });
+
+    // Action type labels for modal
+    var actionTypeLabels = <?php echo wp_json_encode($actionTypeLabels); ?>;
+
+    // Suggestions modal
+    $(document).on('click', '.suggestions-badge', function(e) {
+        e.preventDefault();
+        var suggestions = $(this).data('suggestions');
+        if (!suggestions || suggestions.length === 0) return;
+        
+        var $tbody = $('#suggestions-modal-body');
+        $tbody.empty();
+        
+        $.each(suggestions, function(i, suggestion) {
+            var type = suggestion.type || '';
+            var typeLabel = actionTypeLabels[type] || type;
+            var priority = suggestion.priority || 0;
+            var reasoning = suggestion.reasoning || suggestion.data?.reasoning || '-';
+            
+            var priorityClass = priority >= 70 ? 'high' : (priority >= 50 ? 'medium' : 'low');
+            var priorityBg = priority >= 70 ? '#ffeaea' : (priority >= 50 ? '#fff3cd' : '#e8f5e9');
+            
+            var row = '<tr>' +
+                '<td><strong>' + typeLabel + '</strong></td>' +
+                '<td><span style="font-weight: 600; padding: 3px 8px; border-radius: 3px; background: ' + priorityBg + ';">' + priority + '</span></td>' +
+                '<td style="font-size: 12px; color: #555;">' + reasoning + '</td>' +
+                '</tr>';
+            $tbody.append(row);
+        });
+        
+        $('#suggestions-modal').show();
+    });
+
+    // Close modal
+    $(document).on('click', '.aiagent-modal-close, .aiagent-modal-overlay', function() {
+        $('#suggestions-modal').hide();
+    });
+
+    // Close modal on escape key
+    $(document).on('keydown', function(e) {
+        if (e.key === 'Escape') {
+            $('#suggestions-modal').hide();
         }
     });
 });

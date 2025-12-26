@@ -267,19 +267,14 @@ class SettingsManager
     }
 
     /**
-     * Load settings schema from config
+     * Load settings schema from appConfig
      *
      * @return void
      */
     private function loadSchema()
     {
-        $configPath = dirname(__DIR__) . '/Config/ai-agent.php';
-        if (file_exists($configPath)) {
-            $config = require $configPath;
-            $this->schema = isset($config['settings_schema']) ? $config['settings_schema'] : [];
-        } else {
-            $this->schema = [];
-        }
+        $config = appConfig('aiagent', []);
+        $this->schema = isset($config['settings_schema']) ? $config['settings_schema'] : [];
     }
 
     /**
@@ -291,6 +286,14 @@ class SettingsManager
      */
     public function get($key, $default = null)
     {
+        // Handle derived action type settings from unified config
+        if ($key === 'actions_enabled_types') {
+            return $this->getEnabledActionTypes();
+        }
+        if ($key === 'actions_require_approval') {
+            return $this->getActionsRequiringApproval();
+        }
+
         if (isset($this->cache[$key])) {
             return $this->cache[$key];
         }
@@ -307,6 +310,107 @@ class SettingsManager
 
         $this->cache[$key] = $value;
         return $value;
+    }
+
+    /**
+     * Get enabled action types from unified config
+     *
+     * @return array
+     */
+    public function getEnabledActionTypes()
+    {
+        $actionTypes = appConfig('aiagent.action_types', []);
+        $savedConfig = get_option(self::OPTION_PREFIX . 'actions_config', []);
+        
+        $enabled = [];
+        foreach ($actionTypes as $type => $config) {
+            // Check saved config first, then fall back to default
+            if (isset($savedConfig[$type]['enabled'])) {
+                $isEnabled = (bool) $savedConfig[$type]['enabled'];
+            } else {
+                $isEnabled = isset($config['default_enabled']) ? (bool) $config['default_enabled'] : false;
+            }
+            
+            if ($isEnabled) {
+                $enabled[] = $type;
+            }
+        }
+        
+        return $enabled;
+    }
+
+    /**
+     * Get action types that require approval from unified config
+     *
+     * @return array
+     */
+    public function getActionsRequiringApproval()
+    {
+        $actionTypes = appConfig('aiagent.action_types', []);
+        $savedConfig = get_option(self::OPTION_PREFIX . 'actions_config', []);
+        
+        $requireApproval = [];
+        foreach ($actionTypes as $type => $config) {
+            // Check saved config first, then fall back to default
+            if (isset($savedConfig[$type]['requires_approval'])) {
+                $needsApproval = (bool) $savedConfig[$type]['requires_approval'];
+            } else {
+                $needsApproval = isset($config['requires_approval']) ? (bool) $config['requires_approval'] : false;
+            }
+            
+            if ($needsApproval) {
+                $requireApproval[] = $type;
+            }
+        }
+        
+        return $requireApproval;
+    }
+
+    /**
+     * Get all action types with their full configuration
+     *
+     * @return array
+     */
+    public function getAllActionTypes()
+    {
+        $actionTypes = appConfig('aiagent.action_types', []);
+        $savedConfig = get_option(self::OPTION_PREFIX . 'actions_config', []);
+        
+        $result = [];
+        foreach ($actionTypes as $type => $config) {
+            $result[$type] = [
+                'label' => isset($config['label']) ? $config['label'] : $type,
+                'description' => isset($config['description']) ? $config['description'] : '',
+                'enabled' => isset($savedConfig[$type]['enabled']) 
+                    ? (bool) $savedConfig[$type]['enabled'] 
+                    : (isset($config['default_enabled']) ? (bool) $config['default_enabled'] : false),
+                'requires_approval' => isset($savedConfig[$type]['requires_approval']) 
+                    ? (bool) $savedConfig[$type]['requires_approval'] 
+                    : (isset($config['requires_approval']) ? (bool) $config['requires_approval'] : false),
+            ];
+        }
+        
+        return $result;
+    }
+
+    /**
+     * Save action type configuration
+     *
+     * @param string $type
+     * @param bool $enabled
+     * @param bool $requiresApproval
+     * @return bool
+     */
+    public function setActionTypeConfig($type, $enabled, $requiresApproval)
+    {
+        $savedConfig = get_option(self::OPTION_PREFIX . 'actions_config', []);
+        
+        $savedConfig[$type] = [
+            'enabled' => (bool) $enabled,
+            'requires_approval' => (bool) $requiresApproval,
+        ];
+        
+        return update_option(self::OPTION_PREFIX . 'actions_config', $savedConfig);
     }
 
     /**

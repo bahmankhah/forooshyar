@@ -73,19 +73,14 @@ class SubscriptionManager implements SubscriptionInterface
     }
 
     /**
-     * Load tier configuration
+     * Load tier configuration from appConfig
      *
      * @return void
      */
     private function loadTiers()
     {
-        $configPath = dirname(__DIR__) . '/Config/ai-agent.php';
-        if (file_exists($configPath)) {
-            $config = require $configPath;
-            $this->tiers = isset($config['subscription']['tiers']) ? $config['subscription']['tiers'] : [];
-        } else {
-            $this->tiers = [];
-        }
+        $config = appConfig('aiagent', []);
+        $this->tiers = isset($config['subscription']['tiers']) ? $config['subscription']['tiers'] : [];
     }
 
     /**

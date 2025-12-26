@@ -133,16 +133,14 @@ class AIAgentModule
             $notification->sendDailySummary($stats);
         });
     }    /**
-     * Load module configuration
+     * Load module configuration from appConfig
      *
      * @return void
      */
     private function loadConfig()
     {
-        $configPath = __DIR__ . '/Config/ai-agent.php';
-        if (file_exists($configPath)) {
-            $this->config = require $configPath;
-        }
+        // Config is loaded from configs/aiagent.php via appConfig()
+        $this->config = appConfig('aiagent', []);
     }
 
     /**
