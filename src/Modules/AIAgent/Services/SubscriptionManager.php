@@ -85,41 +85,27 @@ class SubscriptionManager implements SubscriptionInterface
 
     /**
      * Check if AI Agent module is globally enabled
+     * Always returns true - module is always active as long as LLM is configured
      *
      * @return bool
      */
     public function isModuleEnabled()
     {
-        return (bool) $this->settings->get('module_enabled', false);
+        // Module is always enabled - no subscription required
+        return true;
     }
 
     /**
      * Check if specific feature is enabled
+     * Always returns true - all features are available
      *
      * @param string $feature
      * @return bool
      */
     public function isFeatureEnabled($feature)
     {
-        if (!$this->isModuleEnabled()) {
-            return false;
-        }
-
-        $tier = $this->getSubscriptionTier();
-        $tierConfig = $this->getTierConfig($tier);
-
-        if (empty($tierConfig)) {
-            return false;
-        }
-
-        $features = isset($tierConfig['features']) ? $tierConfig['features'] : [];
-
-        // Enterprise has all features
-        if (in_array('*', $features)) {
-            return true;
-        }
-
-        return in_array($feature, $features);
+        // All features are always enabled
+        return true;
     }
 
     /**
@@ -210,20 +196,15 @@ class SubscriptionManager implements SubscriptionInterface
 
     /**
      * Check if usage limit is exceeded
+     * Always returns false - no limits
      *
      * @param string $limitType
      * @return bool
      */
     public function isLimitExceeded($limitType)
     {
-        $usage = $this->checkUsageLimit($limitType);
-        
-        // Unlimited
-        if ($usage['allowed'] === -1) {
-            return false;
-        }
-
-        return $usage['remaining'] <= 0;
+        // No limits - always allow
+        return false;
     }
 
     /**

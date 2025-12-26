@@ -10,34 +10,25 @@ if (!defined('ABSPATH')) {
 
 use Forooshyar\WPLite\Container;
 use Forooshyar\Modules\AIAgent\Services\SettingsManager;
-use Forooshyar\Modules\AIAgent\Services\SubscriptionManager;
 
 // Get services
 $aiSettings = Container::resolve(SettingsManager::class);
-$aiSubscription = Container::resolve(SubscriptionManager::class);
 
 $settingsBySection = $aiSettings->getBySection();
 $sectionLabels = $aiSettings->getSectionLabels();
-$subscriptionStatus = $aiSubscription->getSubscriptionStatus();
-
-$currentTier = isset($subscriptionStatus['tier']) ? $subscriptionStatus['tier'] : 'free';
-$tierName = isset($subscriptionStatus['tier_name']) ? $subscriptionStatus['tier_name'] : 'رایگان';
 ?>
 
 <div class="aiagent-settings-wrapper">
-    <!-- Subscription Status Banner -->
+    <!-- Status Banner (simplified - no subscription) -->
     <div class="aiagent-subscription-banner">
         <div class="subscription-info">
-            <span class="tier-badge tier-<?php echo esc_attr($currentTier); ?>">
-                <?php echo esc_html($tierName); ?>
+            <span class="tier-badge tier-enterprise">
+                <?php _e('فعال', 'forooshyar'); ?>
             </span>
             <span class="subscription-text">
-                <?php printf(__('اشتراک فعلی: %s', 'forooshyar'), esc_html($tierName)); ?>
+                <?php _e('دستیار هوشمند فروش', 'forooshyar'); ?>
             </span>
         </div>
-        <?php if ($currentTier !== 'enterprise'): ?>
-        <a href="#upgrade" class="button button-primary"><?php _e('ارتقای پلن', 'forooshyar'); ?></a>
-        <?php endif; ?>
     </div>
 
     <!-- Sub-tabs for AI Agent sections -->
@@ -86,27 +77,15 @@ $tierName = isset($subscriptionStatus['tier_name']) ? $subscriptionStatus['tier_
                     $type = isset($config['type']) ? $config['type'] : 'text';
                     $label = isset($config['label']) ? $config['label'] : $key;
                     $description = isset($config['description']) ? $config['description'] : '';
-                    $requiresFeature = isset($config['requires_feature']) ? $config['requires_feature'] : null;
-                    $featureEnabled = true;
-                    
-                    if ($requiresFeature && isset($subscriptionStatus['features'])) {
-                        $featureEnabled = in_array($requiresFeature, $subscriptionStatus['features']);
-                    }
             ?>
-            <tr class="<?php echo !$featureEnabled ? 'feature-disabled' : ''; ?>">
+            <tr>
                 <th scope="row">
                     <label for="aiagent_<?php echo esc_attr($key); ?>">
                         <?php echo esc_html($label); ?>
                     </label>
-                    <?php if ($requiresFeature && !$featureEnabled): ?>
-                    <span class="feature-badge" title="<?php esc_attr_e('نیاز به ارتقا', 'forooshyar'); ?>">
-                        <?php _e('حرفه‌ای', 'forooshyar'); ?>
-                    </span>
-                    <?php endif; ?>
                 </th>
                 <td>
                     <?php
-                    $disabled = !$featureEnabled ? 'disabled' : '';
                     $fieldName = 'aiagent_' . $key;
                     
                     switch ($type):
@@ -118,7 +97,7 @@ $tierName = isset($subscriptionStatus['tier_name']) ? $subscriptionStatus['tier_
                                    id="<?php echo esc_attr($fieldName); ?>" 
                                    value="1" 
                                    <?php checked($value, true); ?> 
-                                   <?php echo $disabled; ?>>
+                                   >
                             <span class="toggle-slider"></span>
                         </label>
                     <?php
@@ -127,7 +106,7 @@ $tierName = isset($subscriptionStatus['tier_name']) ? $subscriptionStatus['tier_
                     ?>
                         <select name="<?php echo esc_attr($fieldName); ?>" 
                                 id="<?php echo esc_attr($fieldName); ?>" 
-                                <?php echo $disabled; ?>>
+                                >
                             <?php 
                             $options = isset($config['options']) ? $config['options'] : [];
                             foreach ($options as $optKey => $optLabel): 
@@ -158,7 +137,7 @@ $tierName = isset($subscriptionStatus['tier_name']) ? $subscriptionStatus['tier_
                                        id="<?php echo esc_attr($checkboxId); ?>" 
                                        value="<?php echo esc_attr($optValue); ?>"
                                        <?php echo in_array($optValue, $currentValues) ? 'checked' : ''; ?>
-                                       <?php echo $disabled; ?>>
+                                       >
                                 <span class="checkbox-label"><?php echo esc_html($optDisplay); ?></span>
                             </label>
                             <?php endforeach; ?>
@@ -175,7 +154,7 @@ $tierName = isset($subscriptionStatus['tier_name']) ? $subscriptionStatus['tier_
                                <?php echo isset($config['min']) ? 'min="' . esc_attr($config['min']) . '"' : ''; ?>
                                <?php echo isset($config['max']) ? 'max="' . esc_attr($config['max']) . '"' : ''; ?>
                                <?php echo isset($config['step']) ? 'step="' . esc_attr($config['step']) . '"' : ''; ?>
-                               <?php echo $disabled; ?>>
+                               >
                     <?php
                             break;
                         case 'password':
@@ -186,7 +165,7 @@ $tierName = isset($subscriptionStatus['tier_name']) ? $subscriptionStatus['tier_
                                value="<?php echo esc_attr($value); ?>" 
                                class="regular-text"
                                autocomplete="new-password"
-                               <?php echo $disabled; ?>>
+                               >
                         <button type="button" class="button toggle-password" data-target="<?php echo esc_attr($fieldName); ?>">
                             <span class="dashicons dashicons-visibility"></span>
                         </button>
@@ -199,7 +178,7 @@ $tierName = isset($subscriptionStatus['tier_name']) ? $subscriptionStatus['tier_
                                id="<?php echo esc_attr($fieldName); ?>" 
                                value="<?php echo esc_url($value); ?>" 
                                class="regular-text"
-                               <?php echo $disabled; ?>>
+                               >
                     <?php
                             break;
                         case 'email':
@@ -210,7 +189,7 @@ $tierName = isset($subscriptionStatus['tier_name']) ? $subscriptionStatus['tier_
                                value="<?php echo esc_attr($value); ?>" 
                                class="regular-text"
                                placeholder="<?php echo esc_attr(get_option('admin_email')); ?>"
-                               <?php echo $disabled; ?>>
+                               >
                     <?php
                             break;
                         case 'action_types':
@@ -232,7 +211,7 @@ $tierName = isset($subscriptionStatus['tier_name']) ? $subscriptionStatus['tier_
                                                id="<?php echo esc_attr($checkboxId); ?>" 
                                                value="<?php echo esc_attr($actionType); ?>"
                                                <?php echo $actionConfig['enabled'] ? 'checked' : ''; ?>
-                                               <?php echo $disabled; ?>>
+                                               >
                                         <span class="checkbox-label"><?php echo esc_html($actionConfig['label']); ?></span>
                                     </label>
                                     <?php endforeach; ?>
@@ -253,7 +232,7 @@ $tierName = isset($subscriptionStatus['tier_name']) ? $subscriptionStatus['tier_
                                                id="<?php echo esc_attr($checkboxId); ?>" 
                                                value="<?php echo esc_attr($actionType); ?>"
                                                <?php echo $actionConfig['requires_approval'] ? 'checked' : ''; ?>
-                                               <?php echo $disabled; ?>>
+                                               >
                                         <span class="checkbox-label"><?php echo esc_html($actionConfig['label']); ?></span>
                                     </label>
                                     <?php endforeach; ?>
@@ -269,7 +248,7 @@ $tierName = isset($subscriptionStatus['tier_name']) ? $subscriptionStatus['tier_
                                id="<?php echo esc_attr($fieldName); ?>" 
                                value="<?php echo esc_attr($value); ?>" 
                                class="regular-text"
-                               <?php echo $disabled; ?>>
+                               >
                     <?php
                             break;
                     endswitch;

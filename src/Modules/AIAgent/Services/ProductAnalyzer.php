@@ -190,7 +190,11 @@ class ProductAnalyzer implements AnalyzerInterface
             'return' => 'ids',
         ]);
 
+        appLogger("[AIAgent] Fetching products with args: " . wp_json_encode($args));
+
         $productIds = wc_get_products($args);
+        
+        appLogger("[AIAgent] Found " . count($productIds) . " products");
 
         $products = [];
         foreach ($productIds as $id) {

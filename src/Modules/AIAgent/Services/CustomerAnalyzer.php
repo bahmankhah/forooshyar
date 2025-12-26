@@ -156,7 +156,11 @@ class CustomerAnalyzer implements AnalyzerInterface
             'fields' => ['ID'],
         ]);
 
+        appLogger("[AIAgent] Fetching customers with args: " . wp_json_encode($args));
+
         $users = get_users($args);
+        
+        appLogger("[AIAgent] Found " . count($users) . " customers");
 
         $customers = [];
         foreach ($users as $user) {

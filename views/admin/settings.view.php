@@ -48,13 +48,12 @@ if (!defined('ABSPATH')) {
            class="nav-tab <?php echo ($current_tab === 'api') ? 'nav-tab-active' : ''; ?>">
             <?php _e('محدودیت‌های API', 'forooshyar'); ?>
         </a>
-        <?php if (get_option('aiagent_module_enabled', true) || current_user_can('manage_options')): ?>
+        <?php // AI Agent tab is always visible ?>
         <a href="?page=forooshyar&tab=aiagent" 
            class="nav-tab <?php echo ($current_tab === 'aiagent') ? 'nav-tab-active' : ''; ?>">
             <span class="dashicons dashicons-chart-line" style="font-size: 16px; vertical-align: middle; margin-left: 5px;"></span>
             <?php _e('دستیار هوشمند', 'forooshyar'); ?>
         </a>
-        <?php endif; ?>
         <!-- <a href="?page=forooshyar&tab=advanced" 
            class="nav-tab <?php echo ($current_tab === 'advanced') ? 'nav-tab-active' : ''; ?>">
             <?php _e('پیشرفته', 'forooshyar'); ?>

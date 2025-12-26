@@ -1401,11 +1401,12 @@ jQuery(document).ready(function($) {
     // Execute action
     $(document).on('click', '.btn-execute-action', function() {
         var $btn = $(this);
+        var $row = $btn.closest('tr');
         var actionId = $btn.data('id');
         
         if (!confirm('<?php _e('آیا از اجرای این اقدام اطمینان دارید؟', 'forooshyar'); ?>')) return;
         
-        $btn.addClass('loading').text('...');
+        $btn.addClass('loading').prop('disabled', true).text('...');
         
         $.ajax({
             url: aiagentAdmin.ajaxUrl,
@@ -1417,18 +1418,46 @@ jQuery(document).ready(function($) {
             },
             success: function(response) {
                 if (response.success) {
-                    location.reload();
+                    // Show success message
+                    var message = response.data.message || '<?php _e('اقدام با موفقیت اجرا شد', 'forooshyar'); ?>';
+                    
+                    // Update the row status or remove it
+                    $row.find('.btn-execute-action, .btn-dismiss-action').remove();
+                    $row.find('td:last').html('<span style="color: #46b450; font-weight: bold;"><?php _e('انجام شد', 'forooshyar'); ?></span>');
+                    
+                    // Update status badge if exists
+                    var $statusBadge = $row.find('span[style*="background"]').first();
+                    if ($statusBadge.length) {
+                        $statusBadge.css('background', '#5cb85c').text('<?php _e('انجام شده', 'forooshyar'); ?>');
+                    }
+                    
+                    // Fade the row slightly to indicate completion
+                    $row.css('opacity', '0.7');
+                    
+                    // Show a brief notification
+                    showNotification(message, 'success');
                 } else {
-                    alert(response.data.message || '<?php _e('خطا', 'forooshyar'); ?>');
-                    $btn.removeClass('loading').text('<?php _e('اجرا', 'forooshyar'); ?>');
+                    var errorMsg = response.data.message || '<?php _e('خطا در اجرای اقدام', 'forooshyar'); ?>';
+                    showNotification(errorMsg, 'error');
+                    $btn.removeClass('loading').prop('disabled', false).text('<?php _e('اجرا', 'forooshyar'); ?>');
                 }
             },
             error: function() {
-                alert('<?php _e('خطا در ارتباط با سرور', 'forooshyar'); ?>');
-                $btn.removeClass('loading').text('<?php _e('اجرا', 'forooshyar'); ?>');
+                showNotification('<?php _e('خطا در ارتباط با سرور', 'forooshyar'); ?>', 'error');
+                $btn.removeClass('loading').prop('disabled', false).text('<?php _e('اجرا', 'forooshyar'); ?>');
             }
         });
     });
+    
+    // Simple notification function
+    function showNotification(message, type) {
+        var bgColor = type === 'success' ? '#46b450' : '#dc3232';
+        var $notification = $('<div class="aiagent-notification" style="position: fixed; top: 50px; left: 50%; transform: translateX(-50%); background: ' + bgColor + '; color: #fff; padding: 12px 24px; border-radius: 4px; z-index: 100001; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">' + message + '</div>');
+        $('body').append($notification);
+        setTimeout(function() {
+            $notification.fadeOut(300, function() { $(this).remove(); });
+        }, 3000);
+    }
 
     // Progress polling
     var progressInterval = null;
