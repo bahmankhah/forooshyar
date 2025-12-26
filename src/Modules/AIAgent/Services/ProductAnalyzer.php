@@ -289,30 +289,32 @@ class ProductAnalyzer implements AnalyzerInterface
      */
     private function getSystemPrompt()
     {
-        return "You are an expert WooCommerce sales optimization AI agent. Analyze product data and provide actionable suggestions to improve sales performance.
+        return "شما یک دستیار هوشمند بهینه‌سازی فروش ووکامرس هستید. داده‌های محصول را تحلیل کنید و پیشنهادات عملی برای بهبود عملکرد فروش ارائه دهید.
 
-Your response MUST be valid JSON with this structure:
+پاسخ شما باید به زبان فارسی و در قالب JSON معتبر با این ساختار باشد:
 {
-    \"analysis\": \"Brief analysis summary\",
+    \"analysis\": \"خلاصه تحلیل به فارسی\",
     \"priority_score\": 1-100,
     \"suggestions\": [
         {
-            \"type\": \"action_type\",
+            \"type\": \"نوع_اقدام\",
             \"priority\": 1-100,
             \"data\": {},
-            \"reasoning\": \"Why this action is recommended\"
+            \"reasoning\": \"دلیل پیشنهاد این اقدام به فارسی\"
         }
     ]
 }
 
-Available action types: send_email, create_discount, update_product, create_campaign, schedule_followup, create_bundle, inventory_alert, schedule_price_change
+انواع اقدامات مجاز: send_email, create_discount, update_product, create_campaign, schedule_followup, create_bundle, inventory_alert, schedule_price_change
 
-Priority guidelines:
-- 90-100: Critical - immediate action required
-- 70-89: High - significant opportunity
-- 50-69: Medium - worth implementing
-- 30-49: Low - minor optimization
-- 1-29: Minimal impact";
+راهنمای اولویت:
+- 90-100: بحرانی - نیاز به اقدام فوری
+- 70-89: بالا - فرصت قابل توجه
+- 50-69: متوسط - ارزش پیاده‌سازی دارد
+- 30-49: پایین - بهینه‌سازی جزئی
+- 1-29: تأثیر حداقلی
+
+مهم: تمام متن‌های analysis و reasoning باید به زبان فارسی باشند.";
     }
 
     /**
@@ -323,23 +325,23 @@ Priority guidelines:
      */
     private function getUserPrompt(array $data)
     {
-        return "Analyze this WooCommerce product and suggest optimization actions:
+        return "این محصول ووکامرس را تحلیل کنید و اقدامات بهینه‌سازی پیشنهاد دهید:
 
-Product: {$data['name']} (ID: {$data['id']})
-Type: {$data['type']}
-Price: {$data['price']} (Regular: {$data['regular_price']}, Sale: {$data['sale_price']})
-Stock: {$data['stock_status']} (Qty: {$data['stock_quantity']})
-Total Sales: {$data['total_sales']}
-Rating: {$data['average_rating']} ({$data['review_count']} reviews)
-Categories: " . implode(', ', $data['categories']) . "
-Created: {$data['date_created']}
+محصول: {$data['name']} (شناسه: {$data['id']})
+نوع: {$data['type']}
+قیمت: {$data['price']} (قیمت اصلی: {$data['regular_price']}، قیمت حراج: {$data['sale_price']})
+موجودی: {$data['stock_status']} (تعداد: {$data['stock_quantity']})
+کل فروش: {$data['total_sales']}
+امتیاز: {$data['average_rating']} ({$data['review_count']} نظر)
+دسته‌بندی‌ها: " . implode('، ', $data['categories']) . "
+تاریخ ایجاد: {$data['date_created']}
 
-Last 30 Days Performance:
-- Orders: {$data['recent_orders']['orders_30d']}
-- Quantity Sold: {$data['recent_orders']['quantity_30d']}
-- Revenue: {$data['recent_orders']['revenue_30d']}
+عملکرد ۳۰ روز گذشته:
+- سفارشات: {$data['recent_orders']['orders_30d']}
+- تعداد فروخته شده: {$data['recent_orders']['quantity_30d']}
+- درآمد: {$data['recent_orders']['revenue_30d']}
 
-Provide analysis and actionable suggestions in JSON format.";
+تحلیل و پیشنهادات عملی را به زبان فارسی و در قالب JSON ارائه دهید.";
     }
 
     /**

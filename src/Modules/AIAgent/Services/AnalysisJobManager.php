@@ -355,27 +355,31 @@ class AnalysisJobManager
         $processedItems = $state['products_processed'] + $state['customers_processed'];
         $percentage = $totalItems > 0 ? round(($processedItems / $totalItems) * 100) : 0;
 
+        // Format current item for display
+        $currentItemText = null;
+        if ($state['current_item']) {
+            $type = $state['current_item']['type'] === 'product' ? 'محصول' : 'مشتری';
+            $currentItemText = $type . ' #' . $state['current_item']['id'];
+        }
+
         return [
             'status' => $state['status'],
             'job_id' => $state['id'] ?? null,
             'is_running' => $state['status'] === self::STATUS_RUNNING,
             'is_cancelling' => $state['status'] === self::STATUS_CANCELLING,
+            'progress' => $percentage,
             'percentage' => $percentage,
-            'products' => [
-                'total' => $state['products_total'],
-                'processed' => $state['products_processed'],
-                'success' => $state['products_success'],
-                'failed' => $state['products_failed'],
-            ],
-            'customers' => [
-                'total' => $state['customers_total'],
-                'processed' => $state['customers_processed'],
-                'success' => $state['customers_success'],
-                'failed' => $state['customers_failed'],
-            ],
+            'products_total' => $state['products_total'],
+            'products_analyzed' => $state['products_success'],
+            'products_processed' => $state['products_processed'],
+            'products_failed' => $state['products_failed'],
+            'customers_total' => $state['customers_total'],
+            'customers_analyzed' => $state['customers_success'],
+            'customers_processed' => $state['customers_processed'],
+            'customers_failed' => $state['customers_failed'],
             'actions_created' => $state['actions_created'],
-            'current_item' => $state['current_item'],
-            'errors' => array_slice($state['errors'], -5), // Last 5 errors
+            'current_item' => $currentItemText,
+            'errors' => \array_slice($state['errors'], -5), // Last 5 errors
             'started_at' => $state['started_at'] ?? null,
             'updated_at' => $state['updated_at'] ?? null,
             'completed_at' => $state['completed_at'] ?? null,
@@ -479,10 +483,16 @@ class AnalysisJobManager
             $priority = (int) ($suggestion['priority'] ?? 50);
             $needsApproval = \in_array($actionType, $requireApproval, true);
 
+            // Include reasoning in action_data for display in dashboard
+            $suggestionData = $suggestion['data'] ?? [];
+            if (!empty($suggestion['reasoning'])) {
+                $suggestionData['reasoning'] = $suggestion['reasoning'];
+            }
+
             $actionData = [
                 'analysis_id' => $analysisResult['id'] ?? null,
                 'action_type' => $actionType,
-                'action_data' => $suggestion['data'] ?? [],
+                'action_data' => $suggestionData,
                 'status' => $needsApproval ? 'pending' : 'approved',
                 'priority_score' => $priority,
                 'requires_approval' => $needsApproval ? 1 : 0,

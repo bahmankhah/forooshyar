@@ -304,37 +304,39 @@ class CustomerAnalyzer implements AnalyzerInterface
      */
     private function getSystemPrompt()
     {
-        return "You are an expert WooCommerce customer lifecycle optimization AI agent. Analyze customer data and provide actionable suggestions to maximize customer lifetime value.
+        return "شما یک دستیار هوشمند بهینه‌سازی چرخه عمر مشتری ووکامرس هستید. داده‌های مشتری را تحلیل کنید و پیشنهادات عملی برای حداکثرسازی ارزش طول عمر مشتری ارائه دهید.
 
-Your response MUST be valid JSON with this structure:
+پاسخ شما باید به زبان فارسی و در قالب JSON معتبر با این ساختار باشد:
 {
-    \"analysis\": \"Brief analysis summary\",
+    \"analysis\": \"خلاصه تحلیل به فارسی\",
     \"priority_score\": 1-100,
     \"suggestions\": [
         {
-            \"type\": \"action_type\",
+            \"type\": \"نوع_اقدام\",
             \"priority\": 1-100,
-            \"data\": {\"customer_id\": ID, ...},
-            \"reasoning\": \"Why this action is recommended\"
+            \"data\": {\"customer_id\": شناسه, ...},
+            \"reasoning\": \"دلیل پیشنهاد این اقدام به فارسی\"
         }
     ]
 }
 
-Available action types: send_email, create_discount, schedule_followup, loyalty_reward, create_campaign
+انواع اقدامات مجاز: send_email, create_discount, schedule_followup, loyalty_reward, create_campaign
 
-Customer segments:
-- new: First-time buyers needing onboarding
-- active: Regular buyers for retention
-- vip: High-value customers for premium treatment
-- at_risk: Declining engagement, needs reactivation
-- dormant: Inactive, needs winback campaign
+بخش‌بندی مشتریان:
+- new: خریداران اولین بار که نیاز به آشناسازی دارند
+- active: خریداران منظم برای حفظ مشتری
+- vip: مشتریان با ارزش بالا برای رفتار ویژه
+- at_risk: کاهش تعامل، نیاز به فعال‌سازی مجدد
+- dormant: غیرفعال، نیاز به کمپین بازگشت
 
-Priority guidelines:
-- 90-100: Critical - immediate action required
-- 70-89: High - significant opportunity
-- 50-69: Medium - worth implementing
-- 30-49: Low - minor optimization
-- 1-29: Minimal impact";
+راهنمای اولویت:
+- 90-100: بحرانی - نیاز به اقدام فوری
+- 70-89: بالا - فرصت قابل توجه
+- 50-69: متوسط - ارزش پیاده‌سازی دارد
+- 30-49: پایین - بهینه‌سازی جزئی
+- 1-29: تأثیر حداقلی
+
+مهم: تمام متن‌های analysis و reasoning باید به زبان فارسی باشند.";
     }
 
     /**
@@ -345,22 +347,31 @@ Priority guidelines:
      */
     private function getUserPrompt(array $data)
     {
-        return "Analyze this WooCommerce customer and suggest engagement actions:
+        $segmentLabels = [
+            'new' => 'جدید',
+            'active' => 'فعال',
+            'vip' => 'ویژه',
+            'at_risk' => 'در خطر',
+            'dormant' => 'غیرفعال',
+        ];
+        $segmentLabel = $segmentLabels[$data['segment']] ?? $data['segment'];
 
-Customer ID: {$data['id']}
-Name: {$data['first_name']} {$data['last_name']}
-Registered: {$data['date_created']}
-Segment: {$data['segment']}
+        return "این مشتری ووکامرس را تحلیل کنید و اقدامات تعاملی پیشنهاد دهید:
 
-Purchase History:
-- Total Orders: {$data['order_count']}
-- Total Spent: {$data['total_spent']}
-- Average Order Value: {$data['order_stats']['average_order_value']}
-- Last Order: {$data['order_stats']['last_order_date']}
-- Days Since Last Order: {$data['order_stats']['days_since_last_order']}
-- Orders (Last 90 Days): {$data['order_stats']['orders_last_90_days']}
+شناسه مشتری: {$data['id']}
+نام: {$data['first_name']} {$data['last_name']}
+تاریخ ثبت‌نام: {$data['date_created']}
+بخش: {$segmentLabel}
 
-Provide analysis and actionable suggestions in JSON format.";
+تاریخچه خرید:
+- کل سفارشات: {$data['order_count']}
+- کل هزینه: {$data['total_spent']}
+- میانگین ارزش سفارش: {$data['order_stats']['average_order_value']}
+- آخرین سفارش: {$data['order_stats']['last_order_date']}
+- روز از آخرین سفارش: {$data['order_stats']['days_since_last_order']}
+- سفارشات (۹۰ روز گذشته): {$data['order_stats']['orders_last_90_days']}
+
+تحلیل و پیشنهادات عملی را به زبان فارسی و در قالب JSON ارائه دهید.";
     }
 
     /**

@@ -357,15 +357,20 @@ class AIAgentService
                 $status = 'approved';
             }
 
+            // Include reasoning in action_data for display in dashboard
+            $suggestionData = isset($suggestion['data']) ? $suggestion['data'] : [];
+            if (!empty($suggestion['reasoning'])) {
+                $suggestionData['reasoning'] = $suggestion['reasoning'];
+            }
+
             $actionData = [
                 'analysis_id' => isset($analysisResults['id']) ? $analysisResults['id'] : null,
                 'action_type' => $actionType,
-                'action_data' => isset($suggestion['data']) ? $suggestion['data'] : [],
+                'action_data' => $suggestionData,
                 'status' => $status,
                 'priority_score' => $priority,
                 'requires_approval' => $needsApproval ? 1 : 0,
                 'source_type' => $sourceType,
-                'reasoning' => isset($suggestion['reasoning']) ? $suggestion['reasoning'] : '',
             ];
 
             $actionId = $this->database->saveAction($actionData);
@@ -554,6 +559,29 @@ class AIAgentService
             'avg_response_time' => $this->database->getAvgResponseTime($days),
         ];
 
+        // Build daily data for chart (merge analyses and actions by date)
+        $analysesByDay = [];
+        foreach ($stats['trends']['analyses_by_day'] as $row) {
+            $analysesByDay[$row['date']] = (int) $row['count'];
+        }
+        
+        $actionsByDay = [];
+        foreach ($stats['actions_daily'] as $row) {
+            $actionsByDay[$row['date']] = (int) $row['count'];
+        }
+        
+        // Generate daily array for last N days
+        $daily = [];
+        for ($i = $days - 1; $i >= 0; $i--) {
+            $date = date('Y-m-d', strtotime("-{$i} days"));
+            $daily[] = [
+                'date' => $date,
+                'analyses' => isset($analysesByDay[$date]) ? $analysesByDay[$date] : 0,
+                'actions' => isset($actionsByDay[$date]) ? $actionsByDay[$date] : 0,
+            ];
+        }
+        $stats['daily'] = $daily;
+
         return $stats;
     }
 
@@ -572,8 +600,8 @@ class AIAgentService
                 'actions_today' => $this->database->getTodayActionsCount(),
                 'success_rate' => $this->database->getSuccessRate(7),
             ],
-            'recent_analyses' => $this->database->getRecentAnalyses(5),
-            'recent_actions' => $this->database->getRecentActions(10),
+            'recent_analyses' => $this->database->getRecentAnalyses(10),
+            'recent_actions' => $this->database->getRecentActions(20),
             'usage' => [
                 'analyses' => $this->subscription->checkUsageLimit('analyses_per_day'),
                 'actions' => $this->subscription->checkUsageLimit('actions_per_day'),
