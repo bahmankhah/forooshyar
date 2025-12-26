@@ -7,7 +7,7 @@
 
 namespace Forooshyar\Modules\AIAgent\Admin;
 
-use WPLite\Facades\View;
+use Forooshyar\WPLite\Facades\View;
 use Forooshyar\Modules\AIAgent\Services\AIAgentService;
 use Forooshyar\Modules\AIAgent\Services\SubscriptionManager;
 use Forooshyar\Modules\AIAgent\Services\SettingsManager;

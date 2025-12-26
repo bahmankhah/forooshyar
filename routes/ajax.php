@@ -1,7 +1,7 @@
 <?php
 
 use Forooshyar\Controllers\AdminController;
-use WPLite\Facades\Route;
+use Forooshyar\WPLite\Facades\Route;
 
 Route::ajax(function ($router) {
     // Settings management

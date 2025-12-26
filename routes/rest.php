@@ -2,7 +2,7 @@
 
 use Forooshyar\Controllers\ProductController;
 use Forooshyar\Middleware\ApiLoggingMiddleware;
-use WPLite\Facades\Route;
+use Forooshyar\WPLite\Facades\Route;
 
 Route::rest(function ($router) {
     // Main products endpoint - GET /products

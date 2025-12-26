@@ -8,7 +8,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-use WPLite\Container;
+use Forooshyar\WPLite\Container;
 use Forooshyar\Modules\AIAgent\Services\SettingsManager;
 use Forooshyar\Modules\AIAgent\Services\SubscriptionManager;
 

@@ -2,11 +2,12 @@
 
 namespace Forooshyar\Middleware;
 
+use function Forooshyar\WPLite\appLogger;
 use Forooshyar\Services\ApiLogService;
 use WP_REST_Request;
 use WP_REST_Response;
-use WPLite\Container;
-use WPLite\Pipeline;
+use Forooshyar\WPLite\Container;
+use Forooshyar\WPLite\Pipeline;
 
 class ApiLoggingMiddleware
 {

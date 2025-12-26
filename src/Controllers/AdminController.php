@@ -3,7 +3,7 @@
 namespace Forooshyar\Controllers;
 
 use Forooshyar\Services\ConfigService;
-use WPLite\Facades\View;
+use Forooshyar\WPLite\Facades\View;
 
 class AdminController extends Controller
 {

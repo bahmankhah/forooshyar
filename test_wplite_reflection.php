@@ -73,7 +73,7 @@ try {
         function get_option($option, $default = false) { return $default; }
     }
     
-    $app = new \WPLite\Application();
+    $app = new \Forooshyar\WPLite\Application();
     
     // Try to make a simple class
     $configService = $app->make(\Forooshyar\Services\ConfigService::class);

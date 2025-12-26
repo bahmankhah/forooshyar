@@ -9,6 +9,7 @@ namespace Forooshyar\Modules\AIAgent\Services;
 
 use Forooshyar\Modules\AIAgent\Contracts\AnalyzerInterface;
 use Forooshyar\Modules\AIAgent\Contracts\LLMProviderInterface;
+use function Forooshyar\WPLite\appLogger;
 
 class ProductAnalyzer implements AnalyzerInterface
 {

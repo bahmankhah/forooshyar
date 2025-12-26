@@ -2,7 +2,7 @@
 
 namespace Forooshyar\Resources;
 
-use WPLite\JsonResource;
+use Forooshyar\WPLite\JsonResource;
 
 class ProductCollectionResource extends JsonResource
 {

@@ -7,7 +7,7 @@
 
 namespace Forooshyar\Modules\AIAgent;
 
-use WPLite\Container;
+use Forooshyar\WPLite\Container;
 use Forooshyar\Modules\AIAgent\Services\SubscriptionManager;
 use Forooshyar\Modules\AIAgent\Services\SettingsManager;
 use Forooshyar\Modules\AIAgent\Services\AIAgentService;
@@ -25,6 +25,7 @@ use Forooshyar\Modules\AIAgent\Admin\AIAgentAdminController;
 use Forooshyar\Modules\AIAgent\Admin\SettingsController;
 use Forooshyar\Modules\AIAgent\Commands;
 use Forooshyar\Modules\AIAgent\Database\Migrations;
+use function Forooshyar\WPLite\appLogger;
 
 class AIAgentModule
 {

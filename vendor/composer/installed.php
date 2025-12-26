@@ -3,7 +3,7 @@
         'name' => 'hsm/wplite-plugin',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => '487343a6ebf7e6316c41b3968a012694b8bda193',
+        'reference' => 'e228c50a9a66b8b9a1ea5a60b51de3e2188c6334',
         'type' => 'wordpress-plugin',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -13,7 +13,7 @@
         'hsm/wplite' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => 'e5cb0312ec1b42eaab411a97576d70f615136c46',
+            'reference' => '89610c5304edd39667b67143cab88621abd20859',
             'type' => 'library',
             'install_path' => __DIR__ . '/../hsm/wplite',
             'aliases' => array(
@@ -24,7 +24,7 @@
         'hsm/wplite-plugin' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => '487343a6ebf7e6316c41b3968a012694b8bda193',
+            'reference' => 'e228c50a9a66b8b9a1ea5a60b51de3e2188c6334',
             'type' => 'wordpress-plugin',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

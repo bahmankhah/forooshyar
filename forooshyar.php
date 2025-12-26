@@ -1,6 +1,7 @@
 <?php
 
-use WPLite\Facades\App;
+use Forooshyar\WPLite\Facades\App;
+use function Forooshyar\WPLite\appLogger;
 /**
  * Plugin Name: فروشیار
  * Description: WPLite Powered Wordpress Plugin.

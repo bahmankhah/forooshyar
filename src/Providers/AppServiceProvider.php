@@ -12,8 +12,9 @@ use Forooshyar\Services\TitleBuilder;
 use Forooshyar\Services\ApiLogService;
 use Forooshyar\Services\LogCleanupService;
 use Forooshyar\Modules\AIAgent\AIAgentModule;
-use WPLite\Container;
-use WPLite\Provider;
+use Forooshyar\WPLite\Container;
+use Forooshyar\WPLite\Provider;
+use function Forooshyar\WPLite\appLogger;
 
 
 class AppServiceProvider extends Provider

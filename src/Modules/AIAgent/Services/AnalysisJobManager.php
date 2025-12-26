@@ -8,6 +8,7 @@
  */
 
 namespace Forooshyar\Modules\AIAgent\Services;
+use function Forooshyar\WPLite\appLogger;
 
 class AnalysisJobManager
 {

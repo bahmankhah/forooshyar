@@ -54,12 +54,12 @@ echo "PHP Version: " . PHP_VERSION . "\n\n";
 
 try {
     // Set up the application
-    $app = new \WPLite\Application();
+    $app = new \Forooshyar\WPLite\Application();
     $app->setPluginPath(__DIR__ . '/');
     $app->setPluginFile(__FILE__);
     
     echo "1. Loading configuration...\n";
-    \WPLite\Config::load();
+    \Forooshyar\WPLite\Config::load();
     echo "✓ Configuration loaded\n\n";
     
     echo "2. Testing appConfig function...\n";
@@ -67,7 +67,7 @@ try {
     echo "✓ API namespace: $namespace\n\n";
     
     echo "3. Testing RouteDefinition creation...\n";
-    $route = new \WPLite\RouteDefinition('GET', '/products', [\Forooshyar\Controllers\ProductController::class, 'index'], 'rest');
+    $route = new \Forooshyar\WPLite\RouteDefinition('GET', '/products', [\Forooshyar\Controllers\ProductController::class, 'index'], 'rest');
     echo "✓ RouteDefinition created\n\n";
     
     echo "4. Testing route registration...\n";
@@ -79,7 +79,7 @@ try {
     echo "✓ ProductController instantiated\n\n";
     
     echo "6. Testing Pipeline...\n";
-    $pipeline = new \WPLite\Pipeline();
+    $pipeline = new \Forooshyar\WPLite\Pipeline();
     echo "✓ Pipeline created\n\n";
     
     echo "✅ All route registration components work!\n";

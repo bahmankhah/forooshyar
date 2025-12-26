@@ -12,12 +12,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/bahmankhah/wplite.git",
-                "reference": "e5cb0312ec1b42eaab411a97576d70f615136c46"
+                "reference": "89610c5304edd39667b67143cab88621abd20859"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/bahmankhah/wplite/zipball/e5cb0312ec1b42eaab411a97576d70f615136c46",
-                "reference": "e5cb0312ec1b42eaab411a97576d70f615136c46",
+                "url": "https://api.github.com/repos/bahmankhah/wplite/zipball/89610c5304edd39667b67143cab88621abd20859",
+                "reference": "89610c5304edd39667b67143cab88621abd20859",
                 "shasum": ""
             },
             "require": {
@@ -42,7 +42,7 @@
                 "issues": "https://github.com/bahmankhah/wplite/issues",
                 "source": "https://github.com/bahmankhah/wplite/tree/main"
             },
-            "time": "2025-12-26T11:25:36+00:00"
+            "time": "2025-12-26T11:53:18+00:00"
         }
     ],
     "packages-dev": [

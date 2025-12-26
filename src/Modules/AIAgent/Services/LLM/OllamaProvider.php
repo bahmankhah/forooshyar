@@ -11,6 +11,7 @@
 namespace Forooshyar\Modules\AIAgent\Services\LLM;
 
 use Forooshyar\Modules\AIAgent\Contracts\LLMProviderInterface;
+use function Forooshyar\WPLite\appLogger;
 
 class OllamaProvider implements LLMProviderInterface
 {

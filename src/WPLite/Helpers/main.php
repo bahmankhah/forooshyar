@@ -6,7 +6,7 @@ use Forooshyar\WPLite\Facades\App;
 use Forooshyar\WPLite\Facades\Route;
 use Forooshyar\WPLite\Facades\View;
 
-if (!function_exists('appConfig')) {
+if (!function_exists('Forooshyar\WPLite\appConfig')) {
     function appConfig($key = null, $default = null)
     {
         $configsName = (md5(App::pluginPath())) . '_wplite_configs';
@@ -29,7 +29,7 @@ if (!function_exists('appConfig')) {
     }
 }
 
-if (!function_exists('appLogger')) {
+if (!function_exists('Forooshyar\WPLite\appLogger')) {
     function appLogger($message)
     {
         $message = (string) $message;
@@ -50,7 +50,7 @@ if (!function_exists('appLogger')) {
     }
 }
 
-if (!function_exists('load_env_file')) {
+if (!function_exists('Forooshyar\WPLite\load_env_file')) {
     // Load .env file manually
     function load_env_file($file_path)
     {
@@ -81,7 +81,7 @@ if (!function_exists('load_env_file')) {
     }
 }
 
-if (!function_exists('replacePlaceholders')) {
+if (!function_exists('Forooshyar\WPLite\replacePlaceholders')) {
     function replacePlaceholders(string $template, array $variables): string
     {
         foreach ($variables as $key => $value) {
@@ -91,12 +91,12 @@ if (!function_exists('replacePlaceholders')) {
         return $template;
     }
 }
-if(!function_exists('view')){
+if(!function_exists('Forooshyar\WPLite\view')){
     function view($path, $data = []){
         return View::render($path, $data);
     }
 }
-if(!function_exists(('reverse'))){
+if(!function_exists('Forooshyar\WPLite\reverse')){
     function reverse($routeName, $params = [], $prefix = null){
         /**
          * @var WPLite\RouteDefinition $routeDef

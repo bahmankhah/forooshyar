@@ -9,7 +9,7 @@
 
 namespace Forooshyar\Modules\AIAgent\Commands;
 
-use WPLite\Container;
+use Forooshyar\WPLite\Container;
 use Forooshyar\Modules\AIAgent\Services\AIAgentService;
 use Forooshyar\Modules\AIAgent\Services\SettingsManager;
 use Forooshyar\Modules\AIAgent\Services\ActionExecutor;
