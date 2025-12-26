@@ -365,7 +365,9 @@ class AIAgentModule
                 Container::resolve(SubscriptionManager::class),
                 Container::resolve(SettingsManager::class),
                 Container::resolve(DatabaseService::class),
-                Container::resolve(ActionExecutor::class)
+                Container::resolve(ActionExecutor::class),
+                Container::resolve(RateLimitService::class),
+                Container::resolve(NotificationService::class)
             );
         });
 

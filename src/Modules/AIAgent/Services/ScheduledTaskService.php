@@ -2,8 +2,8 @@
 /**
  * Scheduled Task Service
  * 
- * مدیریت وظایف زمان‌بندی شده مانند تغییرات قیمت، پیگیری‌ها و کمپین‌ها
- * این سرویس از جدول aiagent_scheduled برای ذخیره و اجرای وظایف استفاده می‌کند
+ * مدیریت وظایف زمان‌بندی شده با استفاده از WooCommerce Action Scheduler
+ * این سرویس از Action Scheduler برای زمان‌بندی تغییرات قیمت، پیگیری‌ها و کمپین‌ها استفاده می‌کند
  * 
  * @package Forooshyar\Modules\AIAgent\Services
  */
@@ -14,25 +14,14 @@ use function Forooshyar\WPLite\appLogger;
 
 class ScheduledTaskService
 {
-    const CRON_HOOK = 'aiagent_process_scheduled_tasks';
+    // Action Scheduler hooks
+    const HOOK_PRICE_CHANGE = 'aiagent_scheduled_price_change';
+    const HOOK_FOLLOWUP = 'aiagent_scheduled_followup';
+    const HOOK_CAMPAIGN = 'aiagent_scheduled_campaign';
+    const HOOK_INVENTORY_CHECK = 'aiagent_scheduled_inventory_check';
     
-    // Task types
-    const TASK_PRICE_CHANGE = 'price_change';
-    const TASK_FOLLOWUP = 'followup';
-    const TASK_CAMPAIGN = 'campaign';
-    const TASK_DISCOUNT_EXPIRY = 'discount_expiry';
-    const TASK_INVENTORY_CHECK = 'inventory_check';
-    const TASK_ANALYSIS_JOB = 'analysis_job';
-    
-    // Task statuses
-    const STATUS_PENDING = 'pending';
-    const STATUS_RUNNING = 'running';
-    const STATUS_COMPLETED = 'completed';
-    const STATUS_FAILED = 'failed';
-    const STATUS_CANCELLED = 'cancelled';
-
-    /** @var string */
-    private $table;
+    // Group name for Action Scheduler
+    const AS_GROUP = 'aiagent_scheduled_tasks';
 
     /** @var ActionExecutor */
     private $actionExecutor;
@@ -53,58 +42,35 @@ class ScheduledTaskService
         SettingsManager $settings,
         Logger $logger
     ) {
-        global $wpdb;
-        $this->table = $wpdb->prefix . 'aiagent_scheduled';
         $this->actionExecutor = $actionExecutor;
         $this->settings = $settings;
         $this->logger = $logger;
     }
 
     /**
-     * Register WordPress hooks
+     * Register Action Scheduler hooks
+     * Called from AIAgentModule::boot()
      *
      * @return void
      */
     public function register()
     {
-        add_action(self::CRON_HOOK, [$this, 'processDueTasks']);
-        
-        // Schedule cron if not already scheduled
-        if (!wp_next_scheduled(self::CRON_HOOK)) {
-            wp_schedule_event(time(), 'hourly', self::CRON_HOOK);
-        }
+        // Register hooks for scheduled tasks
+        add_action(self::HOOK_PRICE_CHANGE, [$this, 'executePriceChange'], 10, 1);
+        add_action(self::HOOK_FOLLOWUP, [$this, 'executeFollowup'], 10, 1);
+        add_action(self::HOOK_CAMPAIGN, [$this, 'executeCampaign'], 10, 1);
+        add_action(self::HOOK_INVENTORY_CHECK, [$this, 'executeInventoryCheck'], 10, 1);
     }
 
     /**
-     * Schedule a new task
+     * Check if Action Scheduler is available
      *
-     * @param string $type Task type
-     * @param array $data Task data
-     * @param string $scheduledAt DateTime string (Y-m-d H:i:s)
-     * @return int|false Task ID or false on failure
+     * @return bool
      */
-    public function schedule($type, array $data, $scheduledAt)
+    public function isActionSchedulerAvailable()
     {
-        global $wpdb;
-
-        $result = $wpdb->insert(
-            $this->table,
-            [
-                'task_type' => $type,
-                'task_data' => wp_json_encode($data),
-                'scheduled_at' => $scheduledAt,
-                'status' => self::STATUS_PENDING,
-            ],
-            ['%s', '%s', '%s', '%s']
-        );
-
-        if ($result) {
-            $taskId = $wpdb->insert_id;
-            appLogger("[AIAgent] Task scheduled: {$type} (ID: {$taskId}) for {$scheduledAt}");
-            return $taskId;
-        }
-
-        return false;
+        return function_exists('as_schedule_single_action') && 
+               function_exists('as_unschedule_all_actions');
     }
 
     /**
@@ -112,34 +78,61 @@ class ScheduledTaskService
      *
      * @param int $productId
      * @param float $newPrice
-     * @param string $scheduledAt
+     * @param string $scheduledAt DateTime string (Y-m-d H:i:s)
      * @param float|null $revertPrice Price to revert to (optional)
      * @param string|null $revertAt DateTime to revert (optional)
      * @param string|null $reason
-     * @return int|false
+     * @return int|false Action ID or false
      */
     public function schedulePriceChange($productId, $newPrice, $scheduledAt, $revertPrice = null, $revertAt = null, $reason = null)
     {
+        if (!$this->isActionSchedulerAvailable()) {
+            appLogger("[AIAgent] Action Scheduler not available for price change");
+            return false;
+        }
+
         $data = [
             'product_id' => $productId,
             'new_price' => $newPrice,
             'reason' => $reason,
         ];
 
-        $taskId = $this->schedule(self::TASK_PRICE_CHANGE, $data, $scheduledAt);
+        $timestamp = strtotime($scheduledAt);
+        if ($timestamp === false) {
+            $timestamp = time() + 86400; // Default to tomorrow
+        }
+
+        $actionId = as_schedule_single_action(
+            $timestamp,
+            self::HOOK_PRICE_CHANGE,
+            [$data],
+            self::AS_GROUP
+        );
+
+        appLogger("[AIAgent] Price change scheduled: Product #{$productId} to {$newPrice} at {$scheduledAt} (Action ID: {$actionId})");
 
         // Schedule revert if specified
-        if ($taskId && $revertPrice !== null && $revertAt !== null) {
+        if ($actionId && $revertPrice !== null && $revertAt !== null) {
             $revertData = [
                 'product_id' => $productId,
                 'new_price' => $revertPrice,
                 'reason' => __('بازگشت قیمت به حالت قبل', 'forooshyar'),
-                'original_task_id' => $taskId,
+                'original_action_id' => $actionId,
             ];
-            $this->schedule(self::TASK_PRICE_CHANGE, $revertData, $revertAt);
+            
+            $revertTimestamp = strtotime($revertAt);
+            if ($revertTimestamp !== false) {
+                as_schedule_single_action(
+                    $revertTimestamp,
+                    self::HOOK_PRICE_CHANGE,
+                    [$revertData],
+                    self::AS_GROUP
+                );
+                appLogger("[AIAgent] Price revert scheduled: Product #{$productId} to {$revertPrice} at {$revertAt}");
+            }
         }
 
-        return $taskId;
+        return $actionId;
     }
 
     /**
@@ -150,10 +143,15 @@ class ScheduledTaskService
      * @param int|null $productId
      * @param string $message
      * @param string $scheduledAt
-     * @return int|false
+     * @return int|false Action ID or false
      */
     public function scheduleFollowup($followupType, $customerId, $productId, $message, $scheduledAt)
     {
+        if (!$this->isActionSchedulerAvailable()) {
+            appLogger("[AIAgent] Action Scheduler not available for followup");
+            return false;
+        }
+
         $data = [
             'followup_type' => $followupType,
             'customer_id' => $customerId,
@@ -161,7 +159,21 @@ class ScheduledTaskService
             'message' => $message,
         ];
 
-        return $this->schedule(self::TASK_FOLLOWUP, $data, $scheduledAt);
+        $timestamp = strtotime($scheduledAt);
+        if ($timestamp === false) {
+            $timestamp = time() + (7 * 86400); // Default to 7 days
+        }
+
+        $actionId = as_schedule_single_action(
+            $timestamp,
+            self::HOOK_FOLLOWUP,
+            [$data],
+            self::AS_GROUP
+        );
+
+        appLogger("[AIAgent] Followup scheduled: {$followupType} for customer #{$customerId} at {$scheduledAt} (Action ID: {$actionId})");
+
+        return $actionId;
     }
 
     /**
@@ -172,10 +184,15 @@ class ScheduledTaskService
      * @param string $targetAudience
      * @param string $scheduledAt
      * @param int $durationDays
-     * @return int|false
+     * @return int|false Action ID or false
      */
     public function scheduleCampaign($campaignName, $campaignMessage, $targetAudience, $scheduledAt, $durationDays = 7)
     {
+        if (!$this->isActionSchedulerAvailable()) {
+            appLogger("[AIAgent] Action Scheduler not available for campaign");
+            return false;
+        }
+
         $data = [
             'campaign_name' => $campaignName,
             'campaign_message' => $campaignMessage,
@@ -183,232 +200,83 @@ class ScheduledTaskService
             'duration_days' => $durationDays,
         ];
 
-        return $this->schedule(self::TASK_CAMPAIGN, $data, $scheduledAt);
+        $timestamp = strtotime($scheduledAt);
+        if ($timestamp === false) {
+            $timestamp = time();
+        }
+
+        $actionId = as_schedule_single_action(
+            $timestamp,
+            self::HOOK_CAMPAIGN,
+            [$data],
+            self::AS_GROUP
+        );
+
+        appLogger("[AIAgent] Campaign scheduled: {$campaignName} at {$scheduledAt} (Action ID: {$actionId})");
+
+        return $actionId;
     }
 
     /**
-     * Get task by ID
+     * Schedule an inventory check
      *
-     * @param int $id
-     * @return array|null
+     * @param int $productId
+     * @param int $threshold
+     * @param string $scheduledAt
+     * @return int|false Action ID or false
      */
-    public function getTask($id)
+    public function scheduleInventoryCheck($productId, $threshold, $scheduledAt)
     {
-        global $wpdb;
-
-        $row = $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM {$this->table} WHERE id = %d",
-            $id
-        ), ARRAY_A);
-
-        if ($row) {
-            $row['task_data'] = json_decode($row['task_data'], true);
-            $row['result'] = $row['result'] ? json_decode($row['result'], true) : null;
+        if (!$this->isActionSchedulerAvailable()) {
+            return false;
         }
 
-        return $row;
-    }
-
-    /**
-     * Get pending tasks
-     *
-     * @param string|null $type Filter by type
-     * @param int $limit
-     * @return array
-     */
-    public function getPendingTasks($type = null, $limit = 100)
-    {
-        global $wpdb;
-
-        $where = "status = %s";
-        $params = [self::STATUS_PENDING];
-
-        if ($type !== null) {
-            $where .= " AND task_type = %s";
-            $params[] = $type;
-        }
-
-        $params[] = $limit;
-
-        $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM {$this->table} WHERE {$where} ORDER BY scheduled_at ASC LIMIT %d",
-            $params
-        ), ARRAY_A);
-
-        foreach ($rows as &$row) {
-            $row['task_data'] = json_decode($row['task_data'], true);
-        }
-
-        return $rows;
-    }
-
-    /**
-     * Get due tasks (scheduled time has passed)
-     *
-     * @param int $limit
-     * @return array
-     */
-    public function getDueTasks($limit = 50)
-    {
-        global $wpdb;
-        $now = current_time('mysql');
-
-        $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM {$this->table} 
-             WHERE status = %s AND scheduled_at <= %s 
-             ORDER BY scheduled_at ASC 
-             LIMIT %d",
-            self::STATUS_PENDING,
-            $now,
-            $limit
-        ), ARRAY_A);
-
-        foreach ($rows as &$row) {
-            $row['task_data'] = json_decode($row['task_data'], true);
-        }
-
-        return $rows;
-    }
-
-    /**
-     * Process all due tasks
-     *
-     * @return array ['processed' => int, 'success' => int, 'failed' => int]
-     */
-    public function processDueTasks()
-    {
-        $tasks = $this->getDueTasks();
-        $processed = 0;
-        $success = 0;
-        $failed = 0;
-
-        appLogger("[AIAgent] Processing " . count($tasks) . " due scheduled tasks");
-
-        foreach ($tasks as $task) {
-            $result = $this->executeTask($task);
-            $processed++;
-
-            if ($result['success']) {
-                $success++;
-            } else {
-                $failed++;
-            }
-        }
-
-        appLogger("[AIAgent] Scheduled tasks processed: {$success} success, {$failed} failed");
-
-        return [
-            'processed' => $processed,
-            'success' => $success,
-            'failed' => $failed,
+        $data = [
+            'product_id' => $productId,
+            'threshold' => $threshold,
         ];
-    }
 
-    /**
-     * Execute a single task
-     *
-     * @param array $task
-     * @return array
-     */
-    public function executeTask(array $task)
-    {
-        $taskId = $task['id'];
-        $taskType = $task['task_type'];
-        $taskData = $task['task_data'];
-
-        appLogger("[AIAgent] Executing task {$taskId} ({$taskType})");
-
-        // Mark as running
-        $this->updateStatus($taskId, self::STATUS_RUNNING);
-
-        try {
-            $result = $this->executeTaskByType($taskType, $taskData);
-
-            if ($result['success']) {
-                $this->completeTask($taskId, $result);
-                appLogger("[AIAgent] Task {$taskId} completed successfully");
-            } else {
-                $this->failTask($taskId, $result['error'] ?? __('خطای ناشناخته', 'forooshyar'), $result);
-                appLogger("[AIAgent] Task {$taskId} failed: " . ($result['error'] ?? 'Unknown'));
-            }
-
-            return $result;
-
-        } catch (\Exception $e) {
-            $this->failTask($taskId, $e->getMessage());
-            appLogger("[AIAgent] Task {$taskId} exception: " . $e->getMessage());
-
-            return [
-                'success' => false,
-                'error' => $e->getMessage(),
-            ];
+        $timestamp = strtotime($scheduledAt);
+        if ($timestamp === false) {
+            $timestamp = time();
         }
+
+        return as_schedule_single_action(
+            $timestamp,
+            self::HOOK_INVENTORY_CHECK,
+            [$data],
+            self::AS_GROUP
+        );
     }
 
     /**
-     * Execute task based on type
-     *
-     * @param string $type
-     * @param array $data
-     * @return array
-     */
-    private function executeTaskByType($type, array $data)
-    {
-        switch ($type) {
-            case self::TASK_PRICE_CHANGE:
-                return $this->executePriceChange($data);
-
-            case self::TASK_FOLLOWUP:
-                return $this->executeFollowup($data);
-
-            case self::TASK_CAMPAIGN:
-                return $this->executeCampaign($data);
-
-            case self::TASK_INVENTORY_CHECK:
-                return $this->executeInventoryCheck($data);
-
-            case self::TASK_ANALYSIS_JOB:
-                // Analysis jobs are handled by AnalysisJobManager
-                return ['success' => true, 'message' => 'Handled by AnalysisJobManager'];
-
-            default:
-                return [
-                    'success' => false,
-                    'error' => sprintf(__('نوع وظیفه ناشناخته: %s', 'forooshyar'), $type),
-                ];
-        }
-    }
-
-    /**
-     * Execute price change task
+     * Execute price change (called by Action Scheduler)
      *
      * @param array $data
-     * @return array
+     * @return void
      */
-    private function executePriceChange(array $data)
+    public function executePriceChange(array $data)
     {
         $productId = isset($data['product_id']) ? (int) $data['product_id'] : 0;
         $newPrice = isset($data['new_price']) ? (float) $data['new_price'] : 0;
 
+        appLogger("[AIAgent] Executing scheduled price change: Product #{$productId} to {$newPrice}");
+
         if (!$productId || $newPrice <= 0) {
-            return [
-                'success' => false,
-                'error' => __('اطلاعات محصول یا قیمت نامعتبر است', 'forooshyar'),
-            ];
+            appLogger("[AIAgent] Invalid price change data");
+            return;
         }
 
         $product = wc_get_product($productId);
         if (!$product) {
-            return [
-                'success' => false,
-                'error' => __('محصول یافت نشد', 'forooshyar'),
-            ];
+            appLogger("[AIAgent] Product not found: #{$productId}");
+            return;
         }
 
         $oldPrice = $product->get_regular_price();
         $product->set_regular_price($newPrice);
         
-        // If product is on sale and new price is lower than sale price, update sale price too
+        // If product is on sale and new price is lower than sale price, clear sale price
         $salePrice = $product->get_sale_price();
         if ($salePrice && $newPrice < $salePrice) {
             $product->set_sale_price('');
@@ -416,43 +284,29 @@ class ScheduledTaskService
 
         $product->save();
 
-        return [
-            'success' => true,
-            'message' => sprintf(
-                __('قیمت محصول %s از %s به %s تغییر کرد', 'forooshyar'),
-                $product->get_name(),
-                wc_price($oldPrice),
-                wc_price($newPrice)
-            ),
-            'data' => [
-                'product_id' => $productId,
-                'old_price' => $oldPrice,
-                'new_price' => $newPrice,
-            ],
-        ];
+        appLogger("[AIAgent] Price changed: Product #{$productId} from {$oldPrice} to {$newPrice}");
     }
 
     /**
-     * Execute followup task
+     * Execute followup (called by Action Scheduler)
      *
      * @param array $data
-     * @return array
+     * @return void
      */
-    private function executeFollowup(array $data)
+    public function executeFollowup(array $data)
     {
         $followupType = isset($data['followup_type']) ? $data['followup_type'] : 'email';
         $customerId = isset($data['customer_id']) ? (int) $data['customer_id'] : 0;
         $message = isset($data['message']) ? $data['message'] : '';
 
+        appLogger("[AIAgent] Executing scheduled followup: {$followupType} for customer #{$customerId}");
+
         if (empty($message)) {
-            return [
-                'success' => false,
-                'error' => __('پیام پیگیری خالی است', 'forooshyar'),
-            ];
+            appLogger("[AIAgent] Followup message is empty");
+            return;
         }
 
         // Get customer info
-        $customer = null;
         $email = '';
         $phone = '';
 
@@ -464,13 +318,11 @@ class ScheduledTaskService
 
         if ($followupType === 'email') {
             if (empty($email)) {
-                return [
-                    'success' => false,
-                    'error' => __('ایمیل مشتری یافت نشد', 'forooshyar'),
-                ];
+                appLogger("[AIAgent] Customer email not found");
+                return;
             }
 
-            return $this->actionExecutor->execute('send_email', [
+            $result = $this->actionExecutor->execute('send_email', [
                 'email' => $email,
                 'subject' => __('پیگیری از فروشگاه', 'forooshyar'),
                 'message' => $message,
@@ -478,61 +330,61 @@ class ScheduledTaskService
             ]);
         } else {
             if (empty($phone)) {
-                return [
-                    'success' => false,
-                    'error' => __('شماره تلفن مشتری یافت نشد', 'forooshyar'),
-                ];
+                appLogger("[AIAgent] Customer phone not found");
+                return;
             }
 
-            return $this->actionExecutor->execute('send_sms', [
+            $result = $this->actionExecutor->execute('send_sms', [
                 'phone' => $phone,
                 'message' => $message,
                 'customer_id' => $customerId,
             ]);
         }
+
+        appLogger("[AIAgent] Followup executed: " . ($result['success'] ? 'success' : 'failed'));
     }
 
     /**
-     * Execute campaign task
+     * Execute campaign (called by Action Scheduler)
      *
      * @param array $data
-     * @return array
+     * @return void
      */
-    private function executeCampaign(array $data)
+    public function executeCampaign(array $data)
     {
-        return $this->actionExecutor->execute('create_campaign', $data);
+        appLogger("[AIAgent] Executing scheduled campaign: " . ($data['campaign_name'] ?? 'Unknown'));
+        
+        $result = $this->actionExecutor->execute('create_campaign', $data);
+        
+        appLogger("[AIAgent] Campaign executed: " . ($result['success'] ? 'success' : 'failed'));
     }
 
     /**
-     * Execute inventory check task
+     * Execute inventory check (called by Action Scheduler)
      *
      * @param array $data
-     * @return array
+     * @return void
      */
-    private function executeInventoryCheck(array $data)
+    public function executeInventoryCheck(array $data)
     {
         $productId = isset($data['product_id']) ? (int) $data['product_id'] : 0;
         $threshold = isset($data['threshold']) ? (int) $data['threshold'] : 5;
 
+        appLogger("[AIAgent] Executing scheduled inventory check: Product #{$productId}");
+
         if (!$productId) {
-            return [
-                'success' => false,
-                'error' => __('شناسه محصول نامعتبر است', 'forooshyar'),
-            ];
+            return;
         }
 
         $product = wc_get_product($productId);
         if (!$product) {
-            return [
-                'success' => false,
-                'error' => __('محصول یافت نشد', 'forooshyar'),
-            ];
+            return;
         }
 
         $stock = $product->get_stock_quantity();
 
         if ($stock !== null && $stock <= $threshold) {
-            return $this->actionExecutor->execute('inventory_alert', [
+            $this->actionExecutor->execute('inventory_alert', [
                 'product_id' => $productId,
                 'current_stock' => $stock,
                 'threshold' => $threshold,
@@ -543,232 +395,176 @@ class ScheduledTaskService
                 ),
             ]);
         }
+    }
+
+    /**
+     * Cancel all scheduled tasks for a product
+     *
+     * @param int $productId
+     * @return void
+     */
+    public function cancelTasksForProduct($productId)
+    {
+        if (!$this->isActionSchedulerAvailable()) {
+            return;
+        }
+
+        // Get all pending actions for this product
+        $actions = as_get_scheduled_actions([
+            'hook' => self::HOOK_PRICE_CHANGE,
+            'group' => self::AS_GROUP,
+            'status' => \ActionScheduler_Store::STATUS_PENDING,
+        ]);
+
+        foreach ($actions as $actionId => $action) {
+            $args = $action->get_args();
+            if (isset($args[0]['product_id']) && $args[0]['product_id'] == $productId) {
+                as_unschedule_action(self::HOOK_PRICE_CHANGE, $args, self::AS_GROUP);
+            }
+        }
+
+        appLogger("[AIAgent] Cancelled scheduled tasks for product #{$productId}");
+    }
+
+    /**
+     * Cancel all scheduled tasks for a customer
+     *
+     * @param int $customerId
+     * @return void
+     */
+    public function cancelTasksForCustomer($customerId)
+    {
+        if (!$this->isActionSchedulerAvailable()) {
+            return;
+        }
+
+        $actions = as_get_scheduled_actions([
+            'hook' => self::HOOK_FOLLOWUP,
+            'group' => self::AS_GROUP,
+            'status' => \ActionScheduler_Store::STATUS_PENDING,
+        ]);
+
+        foreach ($actions as $actionId => $action) {
+            $args = $action->get_args();
+            if (isset($args[0]['customer_id']) && $args[0]['customer_id'] == $customerId) {
+                as_unschedule_action(self::HOOK_FOLLOWUP, $args, self::AS_GROUP);
+            }
+        }
+
+        appLogger("[AIAgent] Cancelled scheduled tasks for customer #{$customerId}");
+    }
+
+    /**
+     * Get statistics about scheduled tasks
+     *
+     * @return array
+     */
+    public function getStatistics()
+    {
+        if (!$this->isActionSchedulerAvailable()) {
+            return [
+                'pending' => 0,
+                'by_type' => [],
+            ];
+        }
+
+        $hooks = [
+            self::HOOK_PRICE_CHANGE => 'price_change',
+            self::HOOK_FOLLOWUP => 'followup',
+            self::HOOK_CAMPAIGN => 'campaign',
+            self::HOOK_INVENTORY_CHECK => 'inventory_check',
+        ];
+
+        $byType = [];
+        $totalPending = 0;
+
+        foreach ($hooks as $hook => $type) {
+            $count = as_get_scheduled_actions([
+                'hook' => $hook,
+                'group' => self::AS_GROUP,
+                'status' => \ActionScheduler_Store::STATUS_PENDING,
+            ], 'ids');
+            
+            $count = is_array($count) ? count($count) : 0;
+            $byType[$type] = $count;
+            $totalPending += $count;
+        }
 
         return [
-            'success' => true,
-            'message' => __('موجودی در حد مجاز است', 'forooshyar'),
-            'data' => [
-                'product_id' => $productId,
-                'current_stock' => $stock,
-                'threshold' => $threshold,
-            ],
+            'pending' => $totalPending,
+            'by_type' => $byType,
         ];
     }
 
     /**
-     * Update task status
+     * Get pending tasks (for display in admin)
      *
-     * @param int $id
-     * @param string $status
-     * @return bool
+     * @param int $limit
+     * @return array
      */
-    public function updateStatus($id, $status)
+    public function getPendingTasks($limit = 50)
     {
-        global $wpdb;
+        if (!$this->isActionSchedulerAvailable()) {
+            return [];
+        }
 
-        return (bool) $wpdb->update(
-            $this->table,
-            ['status' => $status],
-            ['id' => $id],
-            ['%s'],
-            ['%d']
-        );
+        $tasks = [];
+        $hooks = [
+            self::HOOK_PRICE_CHANGE => 'price_change',
+            self::HOOK_FOLLOWUP => 'followup',
+            self::HOOK_CAMPAIGN => 'campaign',
+            self::HOOK_INVENTORY_CHECK => 'inventory_check',
+        ];
+
+        foreach ($hooks as $hook => $type) {
+            $actions = as_get_scheduled_actions([
+                'hook' => $hook,
+                'group' => self::AS_GROUP,
+                'status' => \ActionScheduler_Store::STATUS_PENDING,
+                'per_page' => $limit,
+                'orderby' => 'date',
+                'order' => 'ASC',
+            ]);
+
+            foreach ($actions as $actionId => $action) {
+                $args = $action->get_args();
+                $tasks[] = [
+                    'id' => $actionId,
+                    'type' => $type,
+                    'data' => isset($args[0]) ? $args[0] : [],
+                    'scheduled_at' => $action->get_schedule()->get_date()->format('Y-m-d H:i:s'),
+                ];
+            }
+        }
+
+        // Sort by scheduled_at
+        usort($tasks, function($a, $b) {
+            return strtotime($a['scheduled_at']) - strtotime($b['scheduled_at']);
+        });
+
+        return array_slice($tasks, 0, $limit);
     }
 
     /**
-     * Complete task
+     * Cancel a specific task by action ID
      *
-     * @param int $id
-     * @param array $result
+     * @param int $actionId
      * @return bool
      */
-    public function completeTask($id, array $result = [])
+    public function cancelTask($actionId)
     {
-        global $wpdb;
-
-        return (bool) $wpdb->update(
-            $this->table,
-            [
-                'status' => self::STATUS_COMPLETED,
-                'executed_at' => current_time('mysql'),
-                'result' => wp_json_encode($result),
-            ],
-            ['id' => $id],
-            ['%s', '%s', '%s'],
-            ['%d']
-        );
-    }
-
-    /**
-     * Fail task
-     *
-     * @param int $id
-     * @param string $error
-     * @param array $result
-     * @return bool
-     */
-    public function failTask($id, $error, array $result = [])
-    {
-        global $wpdb;
-
-        $result['error'] = $error;
-
-        return (bool) $wpdb->update(
-            $this->table,
-            [
-                'status' => self::STATUS_FAILED,
-                'executed_at' => current_time('mysql'),
-                'result' => wp_json_encode($result),
-            ],
-            ['id' => $id],
-            ['%s', '%s', '%s'],
-            ['%d']
-        );
-    }
-
-    /**
-     * Cancel task
-     *
-     * @param int $id
-     * @return bool
-     */
-    public function cancelTask($id)
-    {
-        $task = $this->getTask($id);
-        
-        if (!$task || $task['status'] !== self::STATUS_PENDING) {
+        if (!$this->isActionSchedulerAvailable()) {
             return false;
         }
 
-        return $this->updateStatus($id, self::STATUS_CANCELLED);
-    }
-
-    /**
-     * Get scheduled tasks for a product
-     *
-     * @param int $productId
-     * @return array
-     */
-    public function getTasksForProduct($productId)
-    {
-        global $wpdb;
-
-        $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM {$this->table} 
-             WHERE status = %s 
-             AND task_data LIKE %s
-             ORDER BY scheduled_at ASC",
-            self::STATUS_PENDING,
-            '%"product_id":' . $productId . '%'
-        ), ARRAY_A);
-
-        foreach ($rows as &$row) {
-            $row['task_data'] = json_decode($row['task_data'], true);
+        try {
+            $store = \ActionScheduler_Store::instance();
+            $store->cancel_action($actionId);
+            appLogger("[AIAgent] Cancelled scheduled task: #{$actionId}");
+            return true;
+        } catch (\Exception $e) {
+            appLogger("[AIAgent] Failed to cancel task #{$actionId}: " . $e->getMessage());
+            return false;
         }
-
-        return $rows;
-    }
-
-    /**
-     * Get scheduled tasks for a customer
-     *
-     * @param int $customerId
-     * @return array
-     */
-    public function getTasksForCustomer($customerId)
-    {
-        global $wpdb;
-
-        $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM {$this->table} 
-             WHERE status = %s 
-             AND task_data LIKE %s
-             ORDER BY scheduled_at ASC",
-            self::STATUS_PENDING,
-            '%"customer_id":' . $customerId . '%'
-        ), ARRAY_A);
-
-        foreach ($rows as &$row) {
-            $row['task_data'] = json_decode($row['task_data'], true);
-        }
-
-        return $rows;
-    }
-
-    /**
-     * Get task statistics
-     *
-     * @param int $days
-     * @return array
-     */
-    public function getStatistics($days = 30)
-    {
-        global $wpdb;
-        $date = date('Y-m-d', strtotime("-{$days} days"));
-
-        // Count by status
-        $byStatus = $wpdb->get_results($wpdb->prepare(
-            "SELECT status, COUNT(*) as count 
-             FROM {$this->table} 
-             WHERE created_at >= %s 
-             GROUP BY status",
-            $date
-        ), ARRAY_A);
-
-        // Count by type
-        $byType = $wpdb->get_results($wpdb->prepare(
-            "SELECT task_type, COUNT(*) as count 
-             FROM {$this->table} 
-             WHERE created_at >= %s 
-             GROUP BY task_type",
-            $date
-        ), ARRAY_A);
-
-        // Pending count
-        $pending = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$this->table} WHERE status = %s",
-            self::STATUS_PENDING
-        ));
-
-        // Due now count
-        $dueNow = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$this->table} 
-             WHERE status = %s AND scheduled_at <= %s",
-            self::STATUS_PENDING,
-            current_time('mysql')
-        ));
-
-        return [
-            'by_status' => $byStatus,
-            'by_type' => $byType,
-            'pending' => (int) $pending,
-            'due_now' => (int) $dueNow,
-        ];
-    }
-
-    /**
-     * Cleanup old completed/failed tasks
-     *
-     * @param int $days
-     * @return int Number of deleted tasks
-     */
-    public function cleanup($days = 90)
-    {
-        global $wpdb;
-        $date = date('Y-m-d', strtotime("-{$days} days"));
-
-        $deleted = $wpdb->query($wpdb->prepare(
-            "DELETE FROM {$this->table} 
-             WHERE status IN (%s, %s, %s) 
-             AND created_at < %s",
-            self::STATUS_COMPLETED,
-            self::STATUS_FAILED,
-            self::STATUS_CANCELLED,
-            $date
-        ));
-
-        appLogger("[AIAgent] Cleaned up {$deleted} old scheduled tasks");
-
-        return (int) $deleted;
     }
 }

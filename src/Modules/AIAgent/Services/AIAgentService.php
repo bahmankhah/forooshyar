@@ -211,15 +211,6 @@ class AIAgentService
         if (!$validation['valid']) {
             throw new LLMConnectionException(__('پیکربندی LLM نامعتبر است: ', 'forooshyar') . implode(', ', $validation['errors']));
         }
-
-        // Check if within preferred hours (optional)
-        if ($this->settings->get('schedule_frequency') !== 'manual') {
-            $currentHour = (int) current_time('G');
-            $avoidHours = $this->settings->get('schedule_avoid_hours', []);
-            if (\in_array($currentHour, $avoidHours, true)) {
-                $this->logger->info('Analysis running outside preferred hours', ['hour' => $currentHour]);
-            }
-        }
     }
 
     /**

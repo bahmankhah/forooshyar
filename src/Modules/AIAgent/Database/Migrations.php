@@ -31,9 +31,9 @@ class Migrations
         $this->createActionsTable();
         $this->createContextTable();
         $this->createUsageTable();
-        $this->createScheduledTable();
+        // Note: aiagent_scheduled table removed - now using WooCommerce Action Scheduler
 
-        update_option('aiagent_db_version', '1.0.0');
+        update_option('aiagent_db_version', '1.1.0');
     }
 
     /**
@@ -44,7 +44,7 @@ class Migrations
     private function createAnalysisTable()
     {
         global $wpdb;
-        $table = $wpdb->prefix . 'aiagent_analysis';
+        $table = $wpdb->prefix . 'forooshyar_aiagent_analysis';
 
         $sql = "CREATE TABLE {$table} (
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -79,7 +79,7 @@ class Migrations
     private function createActionsTable()
     {
         global $wpdb;
-        $table = $wpdb->prefix . 'aiagent_actions';
+        $table = $wpdb->prefix . 'forooshyar_aiagent_actions';
 
         $sql = "CREATE TABLE {$table} (
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -114,7 +114,7 @@ class Migrations
     private function createContextTable()
     {
         global $wpdb;
-        $table = $wpdb->prefix . 'aiagent_context';
+        $table = $wpdb->prefix . 'forooshyar_aiagent_context';
 
         $sql = "CREATE TABLE {$table} (
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -142,7 +142,7 @@ class Migrations
     private function createUsageTable()
     {
         global $wpdb;
-        $table = $wpdb->prefix . 'aiagent_usage';
+        $table = $wpdb->prefix . 'forooshyar_aiagent_usage';
 
         $sql = "CREATE TABLE {$table} (
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -160,29 +160,16 @@ class Migrations
 
     /**
      * Create scheduled tasks table
-     *
+     * 
+     * @deprecated This table is no longer used. Scheduled tasks now use WooCommerce Action Scheduler.
+     * @see ScheduledTaskService
      * @return void
      */
     private function createScheduledTable()
     {
-        global $wpdb;
-        $table = $wpdb->prefix . 'aiagent_scheduled';
-
-        $sql = "CREATE TABLE {$table} (
-            id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-            task_type VARCHAR(50) NOT NULL,
-            task_data LONGTEXT NOT NULL,
-            scheduled_at DATETIME NOT NULL,
-            status VARCHAR(20) DEFAULT 'pending',
-            executed_at DATETIME DEFAULT NULL,
-            result LONGTEXT DEFAULT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            KEY idx_scheduled (scheduled_at, status),
-            KEY idx_type (task_type)
-        ) {$this->charsetCollate};";
-
-        dbDelta($sql);
+        // This method is kept for backward compatibility but does nothing.
+        // Scheduled tasks are now managed by WooCommerce Action Scheduler.
+        // See: src/Modules/AIAgent/Services/ScheduledTaskService.php
     }
 
     /**
@@ -195,11 +182,11 @@ class Migrations
         global $wpdb;
 
         $tables = [
-            $wpdb->prefix . 'aiagent_analysis',
-            $wpdb->prefix . 'aiagent_actions',
-            $wpdb->prefix . 'aiagent_context',
-            $wpdb->prefix . 'aiagent_usage',
-            $wpdb->prefix . 'aiagent_scheduled',
+            $wpdb->prefix . 'forooshyar_aiagent_analysis',
+            $wpdb->prefix . 'forooshyar_aiagent_actions',
+            $wpdb->prefix . 'forooshyar_aiagent_context',
+            $wpdb->prefix . 'forooshyar_aiagent_usage',
+            // Note: aiagent_scheduled table removed - was using WooCommerce Action Scheduler
         ];
 
         foreach ($tables as $table) {

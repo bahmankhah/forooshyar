@@ -28,7 +28,7 @@ class ContextManager
     public function __construct()
     {
         global $wpdb;
-        $this->table = $wpdb->prefix . 'aiagent_context';
+        $this->table = $wpdb->prefix . 'forooshyar_aiagent_context';
     }
 
     /**

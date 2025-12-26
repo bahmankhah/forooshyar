@@ -630,6 +630,22 @@ class SettingsManager
                 }
                 return ['valid' => true, 'error' => null];
 
+            case 'user_multiselect':
+                if (!is_array($value)) {
+                    // Allow empty value
+                    if (empty($value)) {
+                        return ['valid' => true, 'error' => null];
+                    }
+                    return ['valid' => false, 'error' => 'Value must be an array'];
+                }
+                // Validate that all values are valid user IDs
+                foreach ($value as $userId) {
+                    if (!is_numeric($userId) || (int)$userId <= 0) {
+                        return ['valid' => false, 'error' => 'Invalid user ID in selection'];
+                    }
+                }
+                return ['valid' => true, 'error' => null];
+
             case 'email':
                 if (!empty($value) && !is_email($value)) {
                     return ['valid' => false, 'error' => 'Invalid email address'];
@@ -752,6 +768,8 @@ class SettingsManager
                 return esc_url_raw($value);
             case 'multiselect':
                 return is_array($value) ? array_map('sanitize_text_field', $value) : [];
+            case 'user_multiselect':
+                return is_array($value) ? array_map('intval', $value) : [];
             case 'password':
                 return $value; // Don't sanitize passwords
             default:
@@ -1094,22 +1112,38 @@ class SettingsManager
     {
         return [
             'frequency' => $this->get('schedule_frequency', 'daily'),
-            'preferred_hours' => (array) $this->get('schedule_preferred_hours', [9, 14]),
-            'avoid_hours' => (array) $this->get('schedule_avoid_hours', [0, 1, 2, 3, 4, 5]),
         ];
     }
 
     /**
-     * Check if current hour is suitable for analysis
+     * Get notification recipients (user IDs)
      *
-     * @return bool
+     * @return array
      */
-    public function isGoodTimeForAnalysis()
+    public function getNotificationRecipients()
     {
-        $currentHour = (int) current_time('G');
-        $avoidHours = (array) $this->get('schedule_avoid_hours', [0, 1, 2, 3, 4, 5]);
+        $recipients = (array) $this->get('notify_recipients', []);
         
-        return !in_array($currentHour, $avoidHours);
+        // If empty, return admin user
+        if (empty($recipients)) {
+            $adminEmail = get_option('admin_email');
+            $adminUser = get_user_by('email', $adminEmail);
+            if ($adminUser) {
+                return [$adminUser->ID];
+            }
+        }
+        
+        return array_map('intval', $recipients);
+    }
+
+    /**
+     * Get notification methods (email, sms)
+     *
+     * @return array
+     */
+    public function getNotificationMethods()
+    {
+        return (array) $this->get('notify_methods', ['email']);
     }
 
     /**

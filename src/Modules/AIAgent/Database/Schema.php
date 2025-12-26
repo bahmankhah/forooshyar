@@ -19,11 +19,11 @@ class Schema
         global $wpdb;
 
         return [
-            'analysis' => $wpdb->prefix . 'aiagent_analysis',
-            'actions' => $wpdb->prefix . 'aiagent_actions',
-            'context' => $wpdb->prefix . 'aiagent_context',
-            'usage' => $wpdb->prefix . 'aiagent_usage',
-            'scheduled' => $wpdb->prefix . 'aiagent_scheduled',
+            'analysis' => $wpdb->prefix . 'forooshyar_aiagent_analysis',
+            'actions' => $wpdb->prefix . 'forooshyar_aiagent_actions',
+            'context' => $wpdb->prefix . 'forooshyar_aiagent_context',
+            'usage' => $wpdb->prefix . 'forooshyar_aiagent_usage',
+            // Note: 'scheduled' table removed - now using WooCommerce Action Scheduler
         ];
     }
 
@@ -64,6 +64,6 @@ class Schema
      */
     public static function needsMigration()
     {
-        return version_compare(self::getVersion(), '1.0.0', '<');
+        return version_compare(self::getVersion(), '1.1.0', '<');
     }
 }

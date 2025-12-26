@@ -51,6 +51,12 @@ class ActionSchedulerJobManager
     /** @var ActionExecutor|null */
     private $actionExecutor;
 
+    /** @var RateLimitService|null */
+    private $rateLimitService;
+
+    /** @var NotificationService|null */
+    private $notificationService;
+
     /**
      * @param ProductAnalyzer $productAnalyzer
      * @param CustomerAnalyzer $customerAnalyzer
@@ -58,6 +64,8 @@ class ActionSchedulerJobManager
      * @param SettingsManager $settings
      * @param DatabaseService $database
      * @param ActionExecutor|null $actionExecutor
+     * @param RateLimitService|null $rateLimitService
+     * @param NotificationService|null $notificationService
      */
     public function __construct(
         ProductAnalyzer $productAnalyzer,
@@ -65,7 +73,9 @@ class ActionSchedulerJobManager
         SubscriptionManager $subscription,
         SettingsManager $settings,
         DatabaseService $database,
-        $actionExecutor = null
+        $actionExecutor = null,
+        $rateLimitService = null,
+        $notificationService = null
     ) {
         $this->productAnalyzer = $productAnalyzer;
         $this->customerAnalyzer = $customerAnalyzer;
@@ -73,6 +83,8 @@ class ActionSchedulerJobManager
         $this->settings = $settings;
         $this->database = $database;
         $this->actionExecutor = $actionExecutor;
+        $this->rateLimitService = $rateLimitService;
+        $this->notificationService = $notificationService;
         
         // NOTE: Hooks are registered in AIAgentModule::registerActionSchedulerHooks()
         // This ensures they are available BEFORE Action Scheduler tries to execute them
@@ -277,6 +289,27 @@ class ActionSchedulerJobManager
 
         appLogger("[AIAgent-AS] Processing {$entityType} #{$entityId}");
 
+        // Check rate limits before making LLM call
+        if ($this->rateLimitService) {
+            $rateLimitCheck = $this->rateLimitService->checkAndIncrement();
+            
+            if (!$rateLimitCheck['allowed']) {
+                // Rate limit exceeded - reschedule this item for later
+                $rescheduleTime = time() + $rateLimitCheck['reschedule_delay'];
+                
+                appLogger("[AIAgent-AS] Rate limit exceeded, rescheduling {$entityType} #{$entityId} for " . date('Y-m-d H:i:s', $rescheduleTime));
+                
+                as_schedule_single_action(
+                    $rescheduleTime,
+                    self::HOOK_PROCESS_ITEM,
+                    [$jobId, $entityType, $entityId],
+                    self::AS_GROUP
+                );
+                
+                return;
+            }
+        }
+
         try {
             if ($entityType === 'product') {
                 $result = $this->productAnalyzer->analyzeEntity($entityId);
@@ -329,6 +362,15 @@ class ActionSchedulerJobManager
                 'error' => $e->getMessage(),
             ];
             appLogger("[AIAgent-AS] Exception processing {$entityType} #{$entityId}: " . $e->getMessage());
+            
+            // Notify about error
+            if ($this->notificationService) {
+                $this->notificationService->notifyError($e->getMessage(), [
+                    'entity_type' => $entityType,
+                    'entity_id' => $entityId,
+                    'job_id' => $jobId,
+                ]);
+            }
         }
 
         $jobState['current_item'] = null;
@@ -651,6 +693,13 @@ class ActionSchedulerJobManager
             $actionId = $this->database->saveAction($actionData);
             if ($actionId) {
                 $created++;
+                
+                // Notify for high priority actions
+                $priorityThreshold = (int) $this->settings->get('analysis_priority_threshold', 70);
+                if ($priority >= $priorityThreshold && $this->notificationService) {
+                    $actionData['id'] = $actionId;
+                    $this->notificationService->notifyHighPriorityAction($actionData);
+                }
             }
         }
 

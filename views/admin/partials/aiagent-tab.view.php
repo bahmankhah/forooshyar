@@ -144,6 +144,35 @@ $sectionLabels = $aiSettings->getSectionLabels();
                         </div>
                     <?php
                             break;
+                        case 'user_multiselect':
+                            // Get WordPress users for selection
+                            $users = get_users(['role__in' => ['administrator', 'shop_manager', 'editor']]);
+                            $currentValues = is_array($value) ? array_map('intval', $value) : [];
+                    ?>
+                        <div class="aiagent-checkbox-group" id="<?php echo esc_attr($fieldName); ?>_group">
+                            <?php foreach ($users as $user): 
+                                $checkboxId = $fieldName . '_' . $user->ID;
+                                $displayName = $user->display_name;
+                                if (!empty($user->user_email)) {
+                                    $displayName .= ' (' . $user->user_email . ')';
+                                }
+                            ?>
+                            <label class="aiagent-checkbox-item" for="<?php echo esc_attr($checkboxId); ?>">
+                                <input type="checkbox" 
+                                       name="<?php echo esc_attr($fieldName); ?>[]" 
+                                       id="<?php echo esc_attr($checkboxId); ?>" 
+                                       value="<?php echo esc_attr($user->ID); ?>"
+                                       <?php echo in_array($user->ID, $currentValues, true) ? 'checked' : ''; ?>
+                                       >
+                                <span class="checkbox-label"><?php echo esc_html($displayName); ?></span>
+                            </label>
+                            <?php endforeach; ?>
+                            <?php if (empty($users)): ?>
+                            <p class="description"><?php _e('هیچ کاربری یافت نشد.', 'forooshyar'); ?></p>
+                            <?php endif; ?>
+                        </div>
+                    <?php
+                            break;
                         case 'number':
                     ?>
                         <input type="number" 
@@ -197,6 +226,32 @@ $sectionLabels = $aiSettings->getSectionLabels();
                             $actionTypes = $aiSettings->getAllActionTypes();
                     ?>
                         <div class="aiagent-action-types-config">
+                            <!-- SMS Help Box -->
+                            <div class="aiagent-sms-help-box" style="margin-bottom: 20px; padding: 15px; background: #fff8e1; border: 1px solid #ffcc02; border-radius: 4px;">
+                                <h4 style="margin: 0 0 10px 0; font-size: 14px; color: #856404;">
+                                    <span class="dashicons dashicons-smartphone" style="margin-left: 5px;"></span>
+                                    <?php _e('راهنمای فعال‌سازی ارسال پیامک', 'forooshyar'); ?>
+                                </h4>
+                                <p style="margin: 0 0 10px 0; font-size: 13px; color: #856404;">
+                                    <?php _e('برای فعال‌سازی ارسال خودکار پیامک، باید یک فیلتر در افزونه یا قالب خود اضافه کنید. این فیلتر به شما امکان می‌دهد از هر سرویس پیامکی (مانند کاوه‌نگار، ملی‌پیامک، فراز اس‌ام‌اس و...) استفاده کنید.', 'forooshyar'); ?>
+                                </p>
+                                <details style="margin-top: 10px;">
+                                    <summary style="cursor: pointer; font-weight: bold; color: #856404;"><?php _e('نمایش کد نمونه', 'forooshyar'); ?></summary>
+                                    <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; margin-top: 10px; font-size: 12px; direction: ltr; text-align: left; overflow-x: auto;"><code>// در فایل functions.php قالب یا افزونه خود اضافه کنید:
+add_filter('aiagent_send_sms', function($sent, $phone, $message, $provider) {
+    // نمونه برای کاوه‌نگار:
+    // $api = new \Kavenegar\KavenegarApi('YOUR_API_KEY');
+    // $result = $api->Send('YOUR_SENDER', $phone, $message);
+    // return !empty($result);
+    
+    // یا از هر سرویس دیگری استفاده کنید
+    // ...
+    
+    return true; // true اگر ارسال موفق بود
+}, 10, 4);</code></pre>
+                                </details>
+                            </div>
+                            
                             <!-- Enabled Action Types -->
                             <div class="action-types-section" style="margin-bottom: 20px;">
                                 <h4 style="margin: 0 0 10px 0; font-size: 14px;"><?php _e('انواع اقدامات فعال', 'forooshyar'); ?></h4>
@@ -256,6 +311,20 @@ $sectionLabels = $aiSettings->getSectionLabels();
                     if (!empty($description)):
                     ?>
                     <p class="description"><?php echo esc_html($description); ?></p>
+                    <?php endif; 
+                    
+                    // Show help text if available (for SMS notification, etc.)
+                    if (!empty($config['help'])):
+                    ?>
+                    <details class="aiagent-help-details" style="margin-top: 8px;">
+                        <summary style="cursor: pointer; color: #2271b1; font-size: 12px;">
+                            <span class="dashicons dashicons-info" style="font-size: 14px; vertical-align: middle;"></span>
+                            <?php _e('راهنمای پیاده‌سازی', 'forooshyar'); ?>
+                        </summary>
+                        <div style="background: #f5f5f5; padding: 10px; border-radius: 4px; margin-top: 8px; font-size: 12px;">
+                            <pre style="direction: ltr; text-align: left; overflow-x: auto; margin: 0; white-space: pre-wrap;"><?php echo esc_html($config['help']); ?></pre>
+                        </div>
+                    </details>
                     <?php endif; ?>
                 </td>
             </tr>

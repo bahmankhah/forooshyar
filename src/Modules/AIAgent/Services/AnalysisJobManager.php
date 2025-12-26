@@ -316,54 +316,30 @@ class AnalysisJobManager
     }
 
     /**
-     * ذخیره کار در جدول دیتابیس برای پایداری
+     * ذخیره کار در wp_options برای پایداری
+     * قبلاً از جدول aiagent_scheduled استفاده می‌شد، اکنون فقط از wp_options استفاده می‌کنیم
      *
      * @param array $jobState
-     * @return int|false
+     * @return bool
      */
     private function saveJobToDatabase(array $jobState)
     {
-        global $wpdb;
-        $table = $wpdb->prefix . 'aiagent_scheduled';
-        
-        // حذف کارهای قبلی با همین نوع
-        $wpdb->delete($table, [
-            'task_type' => 'analysis_job',
-            'status' => 'pending',
-        ]);
-        
-        return $wpdb->insert($table, [
-            'task_type' => 'analysis_job',
-            'task_data' => wp_json_encode($jobState),
-            'scheduled_at' => current_time('mysql'),
-            'status' => 'pending',
-        ], ['%s', '%s', '%s', '%s']);
+        // فقط از wp_options استفاده می‌کنیم - saveJobState قبلاً این کار را انجام می‌دهد
+        // این متد برای سازگاری با کد قبلی نگه داشته شده است
+        return true;
     }
 
     /**
-     * بروزرسانی کار در دیتابیس
+     * بروزرسانی کار در wp_options
+     * قبلاً از جدول aiagent_scheduled استفاده می‌شد، اکنون فقط از wp_options استفاده می‌کنیم
      *
      * @param array $jobState
      * @return void
      */
     private function updateJobInDatabase(array $jobState)
     {
-        global $wpdb;
-        $table = $wpdb->prefix . 'aiagent_scheduled';
-        
-        $wpdb->update(
-            $table,
-            [
-                'task_data' => wp_json_encode($jobState),
-                'status' => $jobState['status'] === self::STATUS_RUNNING ? 'pending' : $jobState['status'],
-            ],
-            [
-                'task_type' => 'analysis_job',
-                'status' => 'pending',
-            ],
-            ['%s', '%s'],
-            ['%s', '%s']
-        );
+        // فقط از wp_options استفاده می‌کنیم - saveJobState قبلاً این کار را انجام می‌دهد
+        // این متد برای سازگاری با کد قبلی نگه داشته شده است
     }
 
     /**
@@ -641,63 +617,26 @@ class AnalysisJobManager
     }
 
     /**
-     * بارگذاری کار از دیتابیس (فقط pending)
+     * بارگذاری کار از wp_options
+     * قبلاً از جدول aiagent_scheduled استفاده می‌شد، اکنون فقط از wp_options استفاده می‌کنیم
      *
      * @return array|null
      */
     private function loadJobFromDatabase()
     {
-        global $wpdb;
-        $table = $wpdb->prefix . 'aiagent_scheduled';
-        
-        $row = $wpdb->get_row($wpdb->prepare(
-            "SELECT task_data FROM {$table} WHERE task_type = %s AND status = %s ORDER BY id DESC LIMIT 1",
-            'analysis_job',
-            'pending'
-        ));
-        
-        if ($row && !empty($row->task_data)) {
-            $data = json_decode($row->task_data, true);
-            if ($data) {
-                // همگام‌سازی با option
-                $this->saveJobState($data);
-                return $data;
-            }
-        }
-        
+        // فقط از wp_options استفاده می‌کنیم
         return null;
     }
     
     /**
-     * بارگذاری آخرین کار از دیتابیس (هر وضعیتی)
+     * بارگذاری آخرین کار از wp_options
+     * قبلاً از جدول aiagent_scheduled استفاده می‌شد، اکنون فقط از wp_options استفاده می‌کنیم
      *
      * @return array|null
      */
     private function loadJobFromDatabaseAnyStatus()
     {
-        global $wpdb;
-        $table = $wpdb->prefix . 'aiagent_scheduled';
-        
-        $row = $wpdb->get_row($wpdb->prepare(
-            "SELECT task_data, status FROM {$table} WHERE task_type = %s ORDER BY id DESC LIMIT 1",
-            'analysis_job'
-        ));
-        
-        if ($row && !empty($row->task_data)) {
-            $data = json_decode($row->task_data, true);
-            if ($data) {
-                // اگر وضعیت در task_data با وضعیت رکورد متفاوت است، از وضعیت رکورد استفاده کن
-                if ($row->status === 'completed') {
-                    $data['status'] = self::STATUS_COMPLETED;
-                } elseif ($row->status === 'cancelled') {
-                    $data['status'] = self::STATUS_CANCELLED;
-                } elseif ($row->status === 'failed') {
-                    $data['status'] = self::STATUS_FAILED;
-                }
-                return $data;
-            }
-        }
-        
+        // فقط از wp_options استفاده می‌کنیم
         return null;
     }
 
@@ -784,11 +723,6 @@ class AnalysisJobManager
         delete_option(self::OPTION_JOB_STATE);
         wp_clear_scheduled_hook(self::CRON_HOOK);
         wp_clear_scheduled_hook(self::HEARTBEAT_HOOK);
-        
-        // پاکسازی از دیتابیس
-        global $wpdb;
-        $table = $wpdb->prefix . 'aiagent_scheduled';
-        $wpdb->delete($table, ['task_type' => 'analysis_job', 'status' => 'pending']);
     }
     
     /**
@@ -1108,19 +1042,12 @@ class AnalysisJobManager
 
     /**
      * دریافت آمار کارها
+     * اکنون فقط وضعیت کار جاری را برمی‌گرداند
      *
      * @return array
      */
     public function getJobStats()
     {
-        global $wpdb;
-        $table = $wpdb->prefix . 'aiagent_scheduled';
-        
-        $stats = $wpdb->get_results(
-            "SELECT status, COUNT(*) as count FROM {$table} WHERE task_type = 'analysis_job' GROUP BY status",
-            ARRAY_A
-        );
-        
         $result = [
             'pending' => 0,
             'completed' => 0,
@@ -1128,8 +1055,12 @@ class AnalysisJobManager
             'cancelled' => 0,
         ];
         
-        foreach ($stats as $row) {
-            $result[$row['status']] = (int) $row['count'];
+        $jobState = $this->getJobState();
+        if ($jobState['status'] !== self::STATUS_IDLE) {
+            $status = $jobState['status'];
+            if (isset($result[$status])) {
+                $result[$status] = 1;
+            }
         }
         
         return $result;
